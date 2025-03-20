@@ -3,6 +3,3 @@ __pycache__/*
 shit.py
 user_data.db
 app1.py
-db.py
-connection.py
-debug_users.py
