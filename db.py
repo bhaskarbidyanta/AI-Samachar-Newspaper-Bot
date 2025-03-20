@@ -13,7 +13,7 @@ load_dotenv()
 
 # Construct the MongoDB URI
 
-MONGO_URI = st.secrets("MONGO_URI")
+MONGO_URI = st.secrets["MONGO_URI"]
 # Connect to MongoDB
 
 # Connect to MongoDB
