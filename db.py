@@ -2,7 +2,7 @@ import pymongo
 import urllib.parse
 import os
 from dotenv import load_dotenv
-
+import streamlit as st
 # Load environment variables
 load_dotenv()
 
@@ -13,7 +13,7 @@ load_dotenv()
 
 # Construct the MongoDB URI
 
-MONGO_URI = os.getenv("MONGO_URI")
+MONGO_URI = st.secrets("MONGO_URI")
 # Connect to MongoDB
 
 # Connect to MongoDB
