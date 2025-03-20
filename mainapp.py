@@ -46,3 +46,4 @@ elif menu == "Sign Up":
         else:
             users_collection.insert_one({"email": email, "password": password, "role": role})
             st.success("Account created! Please login.")
+#This is a test line
