@@ -11,3 +11,5 @@ faiss-cpu
 #PyAudio
 datetime
 langchain
+PyPDF2
+requests

@@ -11,10 +11,22 @@ from langchain.memory import ConversationBufferMemory
 from dotenv import load_dotenv
 from textblob import TextBlob
 import emoji
+import requests
+import datetime
+import PyPDF2
 
 # Load API key
 load_dotenv()
 google_api_key = st.secrets["GEMINI_API_KEY"]
+
+# Ensure chat_history exists in session_state
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# Initialize the conversational chain if it's not in session_state
+if "qa_chain" not in st.session_state:
+    st.session_state.qa_chain = None
+
 
 if not google_api_key:
     st.error("❌ Error: Google API Key is missing. Set 'GEMINI_API_KEY' in your .env file.")
@@ -168,3 +180,108 @@ if "qa_chain" in st.session_state:
 if st.button("Logout"):
     st.session_state.clear()
     st.switch_page("mainapp.py")
+
+# Function to download PDFs from a URL
+def download_pdfs_from_site(base_url):
+    # Get the current date to create a folder
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    download_dir = os.path.join("news", current_date, "downloaded_pdfs")
+    
+    # Create the folder if it doesn't exist
+    os.makedirs(download_dir, exist_ok=True)
+    
+    page_number = 1  # Start from mpage_1
+    while True:
+        # Construct the URL for the current page
+        url = f"{base_url}_{page_number}.pdf"
+        response = requests.get(url)
+        
+        # If the URL returns a 404 error, stop downloading
+        if response.status_code == 404:
+            st.warning(f"Stopped downloading. {url} returned a 404 error.")
+            break
+        
+        # Save the PDF to the specified directory
+        pdf_filename = os.path.join(download_dir, f"mpage_{page_number}.pdf")
+        with open(pdf_filename, 'wb') as file:
+            file.write(response.content)
+        
+        # Notify user of the successful download
+        st.success(f"Downloaded: {pdf_filename}")
+        page_number += 1  # Move to the next page
+
+# Streamlit button to trigger the download
+if st.button("Download PDF from site"):
+    try:
+        # Call the function to download PDFs starting from mpage_1
+        download_pdfs_from_site("https://www.ehitavada.com/encyc/6/2025/03/22/Mpage")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+
+def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selected_model):
+    """This method will load PDFs from the specified directory, extract text, and process them."""
+    all_texts = []
+    
+    # Loop through each PDF file in the downloaded directory
+    for pdf_file in os.listdir(download_dir):
+        if pdf_file.endswith(".pdf"):
+            pdf_path = os.path.join(download_dir, pdf_file)
+            
+            # Read the PDF and extract its content
+            with open(pdf_path, 'rb') as file:
+                reader = PyPDF2.PdfReader(file)
+                extracted_text = []
+                
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        extracted_text.append(page_text)
+                
+                text = "\n".join(extracted_text)
+                
+                if text.strip():  # Only add if the PDF has content
+                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+                    chunks = text_splitter.split_text(text)
+                    all_texts.extend(chunks)
+                else:
+                    st.warning(f"Warning: No text extracted from {pdf_file}. Skipping.")
+    
+    if not all_texts:
+        st.error("❌ Error: No valid text found in the PDFs.")
+        return None
+    
+    # Store the text chunks in FAISS
+    embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model, google_api_key=google_api_key)
+    vectorstore = FAISS.from_texts(all_texts, embeddings)
+    
+    # Set up the conversational retrieval chain
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    qa_chain = ConversationalRetrievalChain.from_llm(
+        llm=ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key),
+        retriever=vectorstore.as_retriever(),
+        memory=memory
+    )
+    
+    st.success("✅ PDFs processed and ready for queries!")
+    
+    # Initialize session state
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    st.session_state.qa_chain = qa_chain  # Store the QA chain in session
+
+    return qa_chain
+
+# Usage in your Streamlit code
+if st.button("📥 Load Downloaded PDFs"):
+    # Assuming the downloaded PDFs are in the folder created previously
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    download_dir = os.path.join("news", current_date, "downloaded_pdfs")
+    
+    if os.path.exists(download_dir):
+        # Process the downloaded PDFs and get the QA chain
+        qa_chain = load_and_process_pdfs(download_dir, google_api_key, EMBEDDING_MODEL, selected_model)
+        
+        if qa_chain:
+            st.session_state.qa_chain = qa_chain  # Store the chain in session for further use
+    else:
+        st.error("❌ No PDFs found in the expected directory. Please download PDFs first.")
