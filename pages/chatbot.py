@@ -247,7 +247,7 @@ def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selecte
                     st.warning(f"Warning: No text extracted from {pdf_file}. Skipping.")
     
     if not all_texts:
-        st.error("❌ Error: No valid text found in the PDFs.")
+        st.error("❌ Error: No valid content found in the downloaded PDFs.")
         return None
     
     # Store the text chunks in FAISS
@@ -261,8 +261,10 @@ def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selecte
         retriever=vectorstore.as_retriever(),
         memory=memory
     )
-    
-    st.success("✅ PDFs processed and ready for queries!")
+
+    st.session_state.qa_chain = qa_chain  # Store in session
+    st.success("✅ PDFs processed successfully! You can now ask questions.")
+
     
     # Initialize session state
     if "chat_history" not in st.session_state:
