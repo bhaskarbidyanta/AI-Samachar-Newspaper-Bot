@@ -50,6 +50,8 @@ if uploaded_files:
         result=pdfs_collection.insert_one(pdf_data)
 
     st.success(f"Uploaded: {file.name} (ID: {result.inserted_id})")
+
+    
 # Logout Button
 if st.button("Logout"):
     st.session_state.clear()
