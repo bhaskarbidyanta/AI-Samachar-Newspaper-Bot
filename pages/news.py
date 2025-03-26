@@ -49,7 +49,7 @@ selected_date = st.date_input("Select Date",datetime.datetime.now())
 def download_pdfs_from_site(base_url,paper_code,selected_date):
     # Get the current date to create a folder
     formatted_date = selected_date.strftime("%Y-%m-%d")
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    #current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     download_dir_main = os.path.join("news", formatted_date, "downloaded_pdfs")
     download_dir_nc = os.path.join("news", formatted_date, "downloaded_pdfs_nc")
     year = selected_date.year
@@ -61,7 +61,7 @@ def download_pdfs_from_site(base_url,paper_code,selected_date):
     page_number = 1  # Start from mpage_1
     while True:
         # Construct the URL for the current page
-        url = f"{base_url}/{year}/{month}/{day}/{paper_code}_{page_number}.pdf"
+        url = f"{base_url}/{year}/0{month}/{day}/{paper_code}_{page_number}.pdf"
         response = requests.get(url)
         
         # If the URL returns a 404 error, stop downloading
@@ -80,7 +80,7 @@ def download_pdfs_from_site(base_url,paper_code,selected_date):
         #pdf_filename = os.path.join(download_dir, f"{paper_code}_{page_number}.pdf")
             with open(pdf_filename_nc, 'wb') as file:
                 file.write(response.content)
-            st.success(f"Downloaded: {pdf_filename_main}")
+            st.success(f"Downloaded: {pdf_filename_nc}")
         # Notify user of the successful download
         
         page_number += 1  # Move to the next page
@@ -152,28 +152,21 @@ def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selecte
 
 # Usage in your Streamlit code
 if st.button("📥 Load Downloaded PDFs"):
-    # Assuming the downloaded PDFs are in the folder created previously
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    formatted_date = selected_date.strftime("%Y-%m-%d")
+    
     if paper_type == "Main Paper":
-        download_dir_main = os.path.join("news", current_date, "downloaded_pdfs")
+        download_dir = os.path.join("news", formatted_date, "downloaded_pdfs")
+    else:
+        download_dir = os.path.join("news", formatted_date, "downloaded_pdfs_nc")
     
-        if os.path.exists(download_dir_main):
-        # Process the downloaded PDFs and get the QA chain
-            qa_chain = load_and_process_pdfs(download_dir_main, google_api_key, EMBEDDING_MODEL, selected_model)
+    if os.path.exists(download_dir) and os.listdir(download_dir):
+        qa_chain = load_and_process_pdfs(download_dir, google_api_key, EMBEDDING_MODEL, selected_model)
         
-            if qa_chain:
-                st.session_state.qa_chain = qa_chain  # Store the chain in session for further use
-        else:
-            st.error("❌ No PDFs found in the expected directory. Please download PDFs first.")
-    else :
-        download_dir_nc = os.path.join("news", current_date, "downloaded_pdfs_nc")
-    
-        if os.path.exists(download_dir_nc):
-        # Process the downloaded PDFs and get the QA chain
-            qa_chain = load_and_process_pdfs(download_dir_nc, google_api_key, EMBEDDING_MODEL, selected_model)
-        
-            if qa_chain:
-                st.session_state.qa_chain = qa_chain
+        if qa_chain:
+            st.session_state.qa_chain = qa_chain
+    else:
+        st.error(f"❌ No PDFs found in {download_dir}. Please download PDFs first.")
+
 
     
 options = {
