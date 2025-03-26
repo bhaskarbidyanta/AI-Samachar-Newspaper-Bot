@@ -53,15 +53,15 @@ def download_pdfs_from_site(base_url,paper_code,selected_date):
     download_dir_main = os.path.join("news", formatted_date, "downloaded_pdfs")
     download_dir_nc = os.path.join("news", formatted_date, "downloaded_pdfs_nc")
     year = selected_date.year
-    month = selected_date.month
-    day = selected_date.day
+    month = str(selected_date.month).zfill(2)
+    day = str(selected_date.day).zfill(2)
     # Create the folder if it doesn't exist
     os.makedirs(download_dir_main, exist_ok=True)
     os.makedirs(download_dir_nc, exist_ok = True)
     page_number = 1  # Start from mpage_1
     while True:
         # Construct the URL for the current page
-        url = f"{base_url}/{year}/0{month}/{day}/{paper_code}_{page_number}.pdf"
+        url = f"{base_url}/{year}/{month}/{day}/{paper_code}_{page_number}.pdf"
         response = requests.get(url)
         
         # If the URL returns a 404 error, stop downloading
@@ -175,7 +175,7 @@ options = {
     "🌍 International News": "Provide me with the latest international news.",
     "🇮🇳 National News": "Show me the latest national news in India.",
     "🏙️ City News": "What are the latest updates in my city?",
-    "💼 Jobs": "List some job openings in India.",
+    "💼 Jobs": "List all job openings mentioned in these pdfs.",
     "🚔 Crime News": "Provide recent crime news updates.",
     "🏞️ Weather News":"Today's weather updates in the newspaper.",
 }
