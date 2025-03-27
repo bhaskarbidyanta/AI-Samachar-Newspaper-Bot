@@ -14,6 +14,9 @@ import emoji
 import requests
 import datetime
 import PyPDF2
+from textblob import TextBlob
+import numpy as np
+import re
 
 # Load API key
 load_dotenv()
@@ -150,6 +153,47 @@ def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selecte
 
     return qa_chain
 
+#sentiment_pipeline = pipeline("sentiment-analysis", model="cardiffnlp/twitter-roberta-base-sentiment")
+
+# Political Bias Keywords (Extendable)
+left_bias_words = [
+    "social justice", "climate change", "income inequality", "progressive",
+    "universal healthcare", "gun control", "racial equity", "minimum wage"
+]
+
+right_bias_words = [
+    "tax cuts", "border security", "traditional values", "free market",
+    "law and order", "second amendment", "private enterprise", "fiscal responsibility"
+]
+
+def analyze_bias(text):
+    """Analyze political bias in extracted newspaper text"""
+    
+    # Polarity Score (-1 = Negative, 1 = Positive)
+    polarity = TextBlob(text).sentiment.polarity
+    
+    # Keyword-Based Bias Score
+    left_count = sum(len(re.findall(rf"\b{word}\b", text.lower())) for word in left_bias_words)
+    right_count = sum(len(re.findall(rf"\b{word}\b", text.lower())) for word in right_bias_words)
+
+    # Determine Bias Score
+    bias_score = (left_count - right_count) / (left_count + right_count + 0.01)  # Avoid division by zero
+    
+    # Classify Bias
+    if bias_score > 0.2:
+        bias_label = "Left-Leaning"
+    elif bias_score < -0.2:
+        bias_label = "Right-Leaning"
+    else:
+        bias_label = "Neutral"
+    
+    return {
+        #"Sentiment Score": sentiment_score,
+        "Polarity": polarity,
+        "Bias Score": bias_score,
+        "Bias Label": bias_label
+    }
+
 # Usage in your Streamlit code
 if st.button("📥 Load Downloaded PDFs"):
     formatted_date = selected_date.strftime("%Y-%m-%d")
@@ -218,6 +262,20 @@ if st.button("📊 Analyze Sentiment"):
         st.subheader(f"🧠 Sentiment of Latest Response: {sentiment_label} ({sentiment_score:.2f})")
     else:
         st.warning("⚠️ No news updates found! Try fetching news first.")
+
+if st.button("📊 Analyze Bias"):
+    if st.session_state.qa_chain:
+        retrieved_docs = st.session_state.qa_chain.retriever.get_relevant_documents("")
+        
+        if retrieved_docs:
+            for doc in retrieved_docs:
+                bias_analysis = analyze_bias(doc.page_content)
+                st.subheader("📰 Bias Analysis of Retrieved Document:")
+                st.write(bias_analysis)
+        else:
+            st.warning("⚠️ No relevant documents found for bias analysis.")
+    else:
+        st.error("❌ QA Chain not initialized. Please process the PDFs first.")
 
 if st.button("Logout"):
     st.session_state.clear()

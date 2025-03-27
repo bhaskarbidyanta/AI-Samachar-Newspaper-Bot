@@ -13,3 +13,5 @@ datetime
 langchain
 PyPDF2
 requests
+textblob
+re
