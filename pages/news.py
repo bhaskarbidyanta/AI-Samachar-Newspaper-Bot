@@ -17,6 +17,7 @@ import PyPDF2
 from textblob import TextBlob
 import numpy as np
 import re
+from transformers import pipeline
 
 # Load API key
 load_dotenv()
@@ -158,41 +159,27 @@ def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selecte
 # Political Bias Keywords (Extendable)
 left_bias_words = [
     "social justice", "climate change", "income inequality", "progressive",
-    "universal healthcare", "gun control", "racial equity", "minimum wage"
+    "universal healthcare", "gun control", "racial equity", "minimum wage","Congress",
+    "Aam Aadmi Party", "AAP", "Indian National Congress",
 ]
 
 right_bias_words = [
     "tax cuts", "border security", "traditional values", "free market",
-    "law and order", "second amendment", "private enterprise", "fiscal responsibility"
+    "law and order", "second amendment", "private enterprise", "fiscal responsibility","BJP","Bharatiya Janata Party",
 ]
 
-def analyze_bias(text):
-    """Analyze political bias in extracted newspaper text"""
-    
-    # Polarity Score (-1 = Negative, 1 = Positive)
-    polarity = TextBlob(text).sentiment.polarity
-    
-    # Keyword-Based Bias Score
-    left_count = sum(len(re.findall(rf"\b{word}\b", text.lower())) for word in left_bias_words)
-    right_count = sum(len(re.findall(rf"\b{word}\b", text.lower())) for word in right_bias_words)
+classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
-    # Determine Bias Score
-    bias_score = (left_count - right_count) / (left_count + right_count + 0.01)  # Avoid division by zero
-    
-    # Classify Bias
-    if bias_score > 0.2:
-        bias_label = "Left-Leaning"
-    elif bias_score < -0.2:
-        bias_label = "Right-Leaning"
-    else:
-        bias_label = "Neutral"
-    
-    return {
-        #"Sentiment Score": sentiment_score,
-        "Polarity": polarity,
-        "Bias Score": bias_score,
-        "Bias Label": bias_label
-    }
+# Define Bias Labels
+bias_labels = ["Left-Leaning", "Right-Leaning", "Neutral"]
+
+def detect_bias(text):
+    """Detect bias using Zero-Shot Classification"""
+    result = classifier(text, bias_labels)
+    scores = {label: score for label, score in zip(result['labels'], result['scores'])}
+    detected_label = result['labels'][0]  # Label with highest score
+    return detected_label, scores
+
 
 # Usage in your Streamlit code
 if st.button("📥 Load Downloaded PDFs"):
@@ -214,6 +201,7 @@ if st.button("📥 Load Downloaded PDFs"):
 
     
 options = {
+    "All News": "Get all the news headlines mentioned in the pdfs.",
     "📌 Summarize": "Summarize the content in a few sentences.",
     "⚽ Sports News": "Give me the latest sports news.",
     "🌍 International News": "Provide me with the latest international news.",
@@ -265,18 +253,30 @@ if st.button("📊 Analyze Sentiment"):
 
 if st.button("📊 Analyze Bias"):
     if st.session_state.qa_chain:
-        retrieved_docs = st.session_state.qa_chain.retriever.get_relevant_documents("")
-        
+        retrieved_docs = st.session_state.qa_chain.retriever.get_relevant_documents("politics")
+
         if retrieved_docs:
-            for doc in retrieved_docs:
-                bias_analysis = analyze_bias(doc.page_content)
-                st.subheader("📰 Bias Analysis of Retrieved Document:")
-                st.write(bias_analysis)
+            for index, doc in enumerate(retrieved_docs, 1):
+                article_text = doc.page_content
+                st.subheader(f"📰 Bias Analysis of Document {index}")
+                
+                # Display a snippet of the document for context
+                st.write(f"**Analyzing Text (Snippet):** {article_text[:500]}...")
+                
+                # Analyze Bias
+                detected_label, scores = detect_bias(article_text[:1024])  # Limit to 1024 tokens
+                st.write({
+                    "Detected Bias": detected_label,
+                    "Scores": scores
+                })
         else:
             st.warning("⚠️ No relevant documents found for bias analysis.")
     else:
-        st.error("❌ QA Chain not initialized. Please process the PDFs first.")
+        st.warning("⚠️ QA Chain not initialized.")
 
 if st.button("Logout"):
     st.session_state.clear()
     st.switch_page("mainapp.py")
+
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
