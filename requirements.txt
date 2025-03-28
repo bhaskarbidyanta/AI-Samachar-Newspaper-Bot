@@ -16,3 +16,4 @@ requests
 textblob
 #re
 torch
+transformers
