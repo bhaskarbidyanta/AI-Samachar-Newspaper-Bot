@@ -201,15 +201,15 @@ if st.button("📥 Load Downloaded PDFs"):
 
     
 options = {
-    "All News": "Get all the news headlines mentioned in the pdfs.",
-    "📌 Summarize": "Summarize the content in a few sentences.",
-    "⚽ Sports News": "Give me the latest sports news.",
-    "🌍 International News": "Provide me with the latest international news.",
-    "🇮🇳 National News": "Show me the latest national news in India.",
-    "🏙️ City News": "What are the latest updates in my city?",
+    "All News": "Get all the news headlines mentioned in these pdfs.",
+    "📌 Summarize": "Summarize all the news in these PDFS .",
+    "⚽ Sports News": "Give me the sports news in these pdf.",
+    "🌍 International News": "Provide me with the mentioned international news in these pdf.",
+    "🇮🇳 National News": "Show me the latest national news in India mentioned in these pdfs.",
+    "🏙️ City News": "What are the latest updates in my city mentioned in these pdfs?",
     "💼 Jobs": "List all job openings mentioned in these pdfs.",
-    "🚔 Crime News": "Provide recent crime news updates.",
-    "🏞️ Weather News":"Today's weather updates in the newspaper.",
+    "🚔 Crime News": "Provide recent crime news updates provided in these pdfs.",
+    "🏞️ Weather News":"Today's weather updates in these newspaper pdfs.",
 }
     
 selected_options = st.multiselect("📢 Choose topics to get updates:", list(options.keys()))
@@ -274,9 +274,32 @@ if st.button("📊 Analyze Bias"):
     else:
         st.warning("⚠️ QA Chain not initialized.")
 
+from googletrans import Translator
+
+translator = Translator()
+language = st.sidebar.selectbox("🌐 Select Language:", ["English", "Hindi", "Marathi"])
+def translate_text(text, target_language):
+    if target_language == "Hindi":
+        translated = translator.translate(text, dest='hi')
+    elif target_language == "Marathi":
+        translated = translator.translate(text, dest='mr')
+    else:
+        return text  # Return original text if language is English
+    return translated.text
+
+if st.button("Get answer in Hindi or Marathi!") and selected_options:
+    for option in selected_options:
+        query = options[option]
+        response = st.session_state.qa_chain.run(query)
+        translated_response = translate_text(response, language)
+        st.session_state.chat_history.append((option, translated_response))
+        st.write(f"**{option}:**", translated_response)
+
 if st.button("Logout"):
     st.session_state.clear()
     st.switch_page("mainapp.py")
 
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+
