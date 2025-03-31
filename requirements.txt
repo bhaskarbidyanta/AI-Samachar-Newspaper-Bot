@@ -17,4 +17,5 @@ textblob
 #re
 torch
 transformers
-googletrans
+#googletrans
+googletrans==4.0.0-rc1
