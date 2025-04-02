@@ -41,20 +41,17 @@ def extract_text_ocr(file):
 
         with pdfplumber.open(file) as pdf:
             for page_number, page in enumerate(pdf.pages, start=1):
-                # Extract images from each page
-                for image in page.images:
-                    # Extract image bytes
-                    image_obj = pdf.pages[page_number - 1].to_image()
-                    pil_image = image_obj.original_image
+                # Render the page as an image
+                pil_image = page.to_image(resolution=300).original  # Corrected line
 
-                    # Convert to RGB (required for pytesseract)
-                    pil_image = pil_image.convert("RGB")
+                # Convert to RGB (required for pytesseract)
+                pil_image = pil_image.convert("RGB")
 
-                    # Extract text from the image
-                    text = pytesseract.image_to_string(pil_image)
+                # Extract text from the image
+                text = pytesseract.image_to_string(pil_image)
 
-                    if text.strip():
-                        extracted_text.append(f"Page {page_number}:\n{text}")
+                if text.strip():
+                    extracted_text.append(f"Page {page_number}:\n{text}")
         
         if extracted_text:
             return "\n".join(extracted_text)
