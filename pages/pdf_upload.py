@@ -35,7 +35,11 @@ def extract_text_pypdf2(file):
     
 def extract_text_ocr(file):
     try:
-        images = convert_from_path(file, dpi=300)
+        with tempfile.NamedTemporaryFile(delete=False,suffix=".pdf") as temp_file:
+            temp_file.write(file.read())
+            temp_file_path = temp_file.name
+        
+        images = convert_from_path(temp_file_path, dpi=300)
         extracted_text = []
 
         for image in images:
@@ -43,7 +47,9 @@ def extract_text_ocr(file):
             if text.strip():
                 extracted_text.append(text)
             
+        os.remove(temp_file_path)  # Clean up the temporary file
         return "\n".join(extracted_text)
+    
     except Exception as e:
         st.error(f"Error extracting text with OCR: {str(e)}")
         return ""
@@ -74,14 +80,18 @@ if uploaded_files:
             continue
 
         # ✅ Insert into MongoDB
-        pdf_data = {
-            "filename": file.name,
-            "content": text,
-            "uploaded_at": datetime.datetime.utcnow()
-        }
-        result=pdfs_collection.insert_one(pdf_data)
+        try:
+            pdf_data = {
+                "filename": file.name,
+                "content": text,
+                "uploaded_at": datetime.datetime.utcnow()
+            }
+            result=pdfs_collection.insert_one(pdf_data)
+            st.success(f"Uploaded: {file.name} (ID: {result.inserted_id})")
+        except Exception as e:
+            st.error(f"Failed to upload {file.name}: {str(e)}")
 
-    st.success(f"Uploaded: {file.name} (ID: {result.inserted_id})")
+    #st.success(f"Uploaded: {file.name} (ID: {result.inserted_id})")
 
     
 # Logout Button
