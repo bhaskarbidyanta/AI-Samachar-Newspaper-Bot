@@ -4,8 +4,10 @@ import streamlit as st
 from db import pdfs_collection  # Import MongoDB collection
 from pdf2image import convert_from_path
 import pytesseract
-import tempfile
+import pdfplumber
 import os
+from PIL import Image
+import io
 
 st.title("Upload PDFs")
 
@@ -35,25 +37,33 @@ def extract_text_pypdf2(file):
     
 def extract_text_ocr(file):
     try:
-        with tempfile.NamedTemporaryFile(delete=False,suffix=".pdf") as temp_file:
-            temp_file.write(file.read())
-            temp_file_path = temp_file.name
-        
-        images = convert_from_path(temp_file_path, dpi=300)
         extracted_text = []
 
-        for image in images:
-            text = pytesseract.image_to_string(image)
-            if text.strip():
-                extracted_text.append(text)
-            
-        os.remove(temp_file_path)  # Clean up the temporary file
-        return "\n".join(extracted_text)
-    
+        with pdfplumber.open(file) as pdf:
+            for page_number, page in enumerate(pdf.pages, start=1):
+                # Extract images from each page
+                for image in page.images:
+                    # Extract image bytes
+                    image_obj = pdf.pages[page_number - 1].to_image()
+                    pil_image = image_obj.original_image
+
+                    # Convert to RGB (required for pytesseract)
+                    pil_image = pil_image.convert("RGB")
+
+                    # Extract text from the image
+                    text = pytesseract.image_to_string(pil_image)
+
+                    if text.strip():
+                        extracted_text.append(f"Page {page_number}:\n{text}")
+        
+        if extracted_text:
+            return "\n".join(extracted_text)
+        else:
+            return ""  # Return empty string if no text found
+
     except Exception as e:
         st.error(f"Error extracting text with OCR: {str(e)}")
         return ""
-
 
 # ✅ File uploader
 uploaded_files = st.file_uploader("Choose PDF files", type="pdf", accept_multiple_files=True)

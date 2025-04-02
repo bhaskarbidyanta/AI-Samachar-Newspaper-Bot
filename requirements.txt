@@ -23,3 +23,5 @@ pdf2image
 pytesseract
 #tempfile
 #os
+PyMuPDF
+pdfplumber
