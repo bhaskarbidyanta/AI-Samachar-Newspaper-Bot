@@ -2,6 +2,10 @@ import PyPDF2
 import datetime
 import streamlit as st
 from db import pdfs_collection  # Import MongoDB collection
+from pdf2image import convert_from_path
+import pytesseract
+import tempfile
+import os
 
 st.title("Upload PDFs")
 
@@ -14,21 +18,49 @@ if st.session_state.get("user_role") != "admin":
     st.error("Access Denied! Only admins can upload PDFs.")
     st.stop()
 
+def extract_text_pypdf2(file):
+    try:
+        reader = PyPDF2.PdfReader(file)
+        extracted_text = []
+
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                extracted_text.append(page_text)
+        return "\n".join(extracted_text)
+    
+    except Exception as e:
+        st.error(f"Error extracting text with PyPDF2: {str(e)}")
+        return ""
+    
+def extract_text_ocr(file):
+    try:
+        images = convert_from_path(file, dpi=300)
+        extracted_text = []
+
+        for image in images:
+            text = pytesseract.image_to_string(image)
+            if text.strip():
+                extracted_text.append(text)
+            
+        return "\n".join(extracted_text)
+    except Exception as e:
+        st.error(f"Error extracting text with OCR: {str(e)}")
+        return ""
+
+
 # ✅ File uploader
 uploaded_files = st.file_uploader("Choose PDF files", type="pdf", accept_multiple_files=True)
 
 if uploaded_files:
     for file in uploaded_files:
-        reader = PyPDF2.PdfReader(file)
-        extracted_text = []
+        # First try PyPDF2 extraction
+        text = extract_text_pypdf2(file)
 
-        # ✅ Extract text from each page safely
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:  # Only add non-empty text
-                extracted_text.append(page_text)
-
-        text = "\n".join(extracted_text)
+        # If PyPDF2 fails, try OCR extraction
+        if not text.strip():
+            st.warning(f"No text found with PyPDF2 in {file.name}. Trying OCR extraction...")
+            text = extract_text_ocr(file)
 
         # ✅ Skip insertion if no text was extracted
         if not text.strip():

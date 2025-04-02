@@ -19,3 +19,7 @@ torch
 transformers
 googletrans
 googletrans==4.0.0-rc1
+pdf2image
+pytesseract
+tempfile
+os
