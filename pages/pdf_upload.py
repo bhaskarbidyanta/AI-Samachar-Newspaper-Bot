@@ -42,7 +42,7 @@ def extract_text_ocr(file):
         if platform.system() == "Windows":
             pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # Update this path if necessary
         else:
-            pytesseract.pytesseract.tesseract_cmd = "/usr/local/bin/tesseract"
+            pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
         
         with pdfplumber.open(file) as pdf:
             for page_number, page in enumerate(pdf.pages, start=1):
