@@ -39,6 +39,7 @@ def extract_text_ocr(file):
     try:
         extracted_text = []
         pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # Update this path if necessary
+        
         with pdfplumber.open(file) as pdf:
             for page_number, page in enumerate(pdf.pages, start=1):
                 # Render the page as an image
@@ -48,7 +49,7 @@ def extract_text_ocr(file):
                 pil_image = pil_image.convert("RGB")
 
                 # Extract text from the image
-                text = pytesseract.image_to_string(pil_image)
+                text = pytesseract.image_to_string(pil_image,lang='hin+mar+eng')
 
                 if text.strip():
                     extracted_text.append(f"Page {page_number}:\n{text}")
