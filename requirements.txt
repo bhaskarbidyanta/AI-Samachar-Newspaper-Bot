@@ -25,3 +25,4 @@ pytesseract
 #os
 PyMuPDF
 pdfplumber
+tesseract-ocr

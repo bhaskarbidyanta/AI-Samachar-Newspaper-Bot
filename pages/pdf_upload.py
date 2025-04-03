@@ -38,7 +38,7 @@ def extract_text_pypdf2(file):
 def extract_text_ocr(file):
     try:
         extracted_text = []
-
+        pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # Update this path if necessary
         with pdfplumber.open(file) as pdf:
             for page_number, page in enumerate(pdf.pages, start=1):
                 # Render the page as an image
