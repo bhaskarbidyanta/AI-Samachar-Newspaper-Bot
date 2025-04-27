@@ -49,21 +49,28 @@ paper_type = st.radio("Select Paper Type",["Main Paper","Nagpur CityLine"])
 
 selected_date = st.date_input("Select Date",datetime.datetime.now())
 
-# Function to download PDFs from a URL
-def download_pdfs_from_site(base_url,paper_code,selected_date):
-    # Get the current date to create a folder
+def download_pdfs_from_site(base_url, paper_code, selected_date):
+    # Get the current date to create folders
     formatted_date = selected_date.strftime("%Y-%m-%d")
-    #current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     download_dir_main = os.path.join("news", formatted_date, "downloaded_pdfs")
     download_dir_nc = os.path.join("news", formatted_date, "downloaded_pdfs_nc")
     year = selected_date.year
     month = str(selected_date.month).zfill(2)
     day = str(selected_date.day).zfill(2)
-    # Create the folder if it doesn't exist
+    
+    # Create the folders if they don't exist
     os.makedirs(download_dir_main, exist_ok=True)
-    os.makedirs(download_dir_nc, exist_ok = True)
-    page_number = 1  # Start from mpage_1
-    while True:
+    os.makedirs(download_dir_nc, exist_ok=True)
+    
+    page_number = 1  # Start from page 1
+    
+    # Set page limits
+    if paper_code == "Mpage":
+        max_pages = 12
+    else:
+        max_pages = 8
+
+    while page_number <= max_pages:
         # Construct the URL for the current page
         url = f"{base_url}/{year}/{month}/{day}/{paper_code}_{page_number}.pdf"
         response = requests.get(url)
@@ -73,7 +80,7 @@ def download_pdfs_from_site(base_url,paper_code,selected_date):
             st.warning(f"Stopped downloading. {url} returned a 404 error.")
             break
         
-        # Save the PDF to the specified directory
+        # Save the PDF to the appropriate directory
         if paper_code == "Mpage":
             pdf_filename_main = os.path.join(download_dir_main, f"{paper_code}_{page_number}.pdf")
             with open(pdf_filename_main, 'wb') as file:
@@ -81,13 +88,12 @@ def download_pdfs_from_site(base_url,paper_code,selected_date):
             st.success(f"Downloaded: {pdf_filename_main}")
         else:
             pdf_filename_nc = os.path.join(download_dir_nc, f"{paper_code}_{page_number}.pdf")
-        #pdf_filename = os.path.join(download_dir, f"{paper_code}_{page_number}.pdf")
             with open(pdf_filename_nc, 'wb') as file:
                 file.write(response.content)
             st.success(f"Downloaded: {pdf_filename_nc}")
-        # Notify user of the successful download
         
         page_number += 1  # Move to the next page
+
 
 # Streamlit button to trigger the download
 if st.button("Download PDF from site"):
