@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from db import pdfs_collection
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
+from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
@@ -14,6 +15,9 @@ import emoji
 import requests
 import datetime
 import PyPDF2
+from components import show_header, show_footer
+
+show_header()
 
 # Load API key
 load_dotenv()
@@ -83,6 +87,7 @@ if st.button("📥 Load PDFs"):
     
     # Store text chunks in FAISS
     embeddings = GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, google_api_key=google_api_key)
+    #embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
     vectorstore = FAISS.from_texts(all_texts, embeddings)
     
     # Setup conversational retrieval chain
@@ -287,3 +292,5 @@ if st.button("📥 Load Downloaded PDFs"):
             st.session_state.qa_chain = qa_chain  # Store the chain in session for further use
     else:
         st.error("❌ No PDFs found in the expected directory. Please download PDFs first.")
+
+show_footer()
