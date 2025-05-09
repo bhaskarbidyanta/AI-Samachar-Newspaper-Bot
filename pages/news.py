@@ -18,6 +18,9 @@ from textblob import TextBlob
 import numpy as np
 #import re
 from transformers import pipeline
+from components import inject_custom_css, show_header,show_footer
+
+show_header()
 
 # Load API key
 load_dotenv()
@@ -309,3 +312,4 @@ import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
+show_footer()

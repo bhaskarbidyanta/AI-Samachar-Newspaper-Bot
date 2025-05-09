@@ -9,7 +9,9 @@ import os
 from PIL import Image
 import io
 import platform
+from components import show_header, show_footer
 
+show_header()
 st.title("Upload PDFs")
 
 # ✅ Check if user is logged in and an admin
@@ -110,3 +112,6 @@ if uploaded_files:
 if st.button("Logout"):
     st.session_state.clear()
     st.switch_page("mainapp.py")
+
+# Show footer
+show_footer()
