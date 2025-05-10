@@ -336,42 +336,4 @@ if st.button("Logout"):
     st.session_state.clear()
     st.switch_page("mainapp.py")
 
-def view_downloaded_pdfs(selected_date, paper_code):
-    formatted_date = selected_date.strftime("%Y-%m-%d")
-    folder_name = "downloaded_pdfs" if paper_code == "Mpage" else "downloaded_pdfs_nc"
-    pdf_dir = Path("news") / formatted_date / folder_name
-
-    if not pdf_dir.exists():
-        st.error(f"No folder found for {formatted_date} - {folder_name}")
-        return
-
-    pdf_files = sorted(pdf_dir.glob("*.pdf"))
-
-    if not pdf_files:
-        st.warning("No PDF files found.")
-        return
-
-    # Initialize session state
-    if "pdf_index" not in st.session_state:
-        st.session_state.pdf_index = 0
-
-    total = len(pdf_files)
-
-    col1, col2, col3 = st.columns([1, 6, 1])
-    with col1:
-        if st.button("⬅ Previous") and st.session_state.pdf_index > 0:
-            st.session_state.pdf_index -= 1
-    with col3:
-        if st.button("Next ➡") and st.session_state.pdf_index < total - 1:
-            st.session_state.pdf_index += 1
-
-    # Show selected PDF
-    current_pdf = pdf_files[st.session_state.pdf_index]
-    st.markdown(f"*Showing:* {current_pdf.name} ({st.session_state.pdf_index + 1} / {total})")
-    absolute_pdf_path = current_pdf.resolve()
-    st.components.v1.iframe(f"file:///{absolute_pdf_path.as_posix()}", height=600)
-
-
-view_downloaded_pdfs(selected_date, paper_type)
-
 show_footer()
