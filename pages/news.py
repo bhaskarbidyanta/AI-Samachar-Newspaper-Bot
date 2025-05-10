@@ -233,9 +233,11 @@ if st.button("Get answer!") and selected_options:
         st.session_state.chat_history.append((option, response))
         #st.write(f"**{option}:**", response)
 
-#if user_input:
-#    response = st.session_state.qa_chain.run(user_input)
-#    st.session_state.chat_history.append((user_input, response))
+user_input = st.text_input("💬 Ask a question about the PDFs:")
+
+if user_input:
+    response = st.session_state.qa_chain.run(user_input)
+    st.session_state.chat_history.append((user_input, response))
     
 # Display chat history
 for question, answer in st.session_state.chat_history:
