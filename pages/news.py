@@ -315,9 +315,9 @@ import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 def show_online_pdf(pdf_url):
-    st.markdown(f"""
-        <iframe src="{pdf_url}" width="100%" height="600px" type="application/pdf"></iframe>
-    """, unsafe_allow_html=True)
+    st.subheader("📄 Click below to view the PDF:")
+    st.markdown(f'[📄 View PDF]({pdf_url})', unsafe_allow_html=True)
+
 
 year = selected_date.year
 month = str(selected_date.month).zfill(2)
