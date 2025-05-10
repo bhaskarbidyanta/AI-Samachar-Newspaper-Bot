@@ -40,13 +40,37 @@ def inject_custom_css():
 def show_header():
     inject_custom_css()
     st.markdown("""
+        <style>
+            .custom-header {
+                background-color: #004080;
+                color: white;
+                padding: 12px 24px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 2px solid #ccc;
+            }
+
+            .custom-header a {
+                color: white;
+                text-decoration: none;
+                margin: 0 12px;
+                font-weight: bold;
+                transition: color 0.2s ease;
+            }
+
+            .custom-header a:hover {
+                color: #ffcc00;
+                text-decoration: underline;
+            }
+        </style>
         <div class="custom-header">
             <div>📰 AI Samachar</div>
             <div>
-                <a href="/news">News</a>
-                <a href="/chatbot">Chatbot</a>
-                <a href="/pdf_upload">Upload News</a>
-                <a href="/Login_Signup">Login/Signup</a>
+                <a href="/news" target="_self">News</a>
+                <a href="/chatbot" target="_self">Chatbot</a>
+                <a href="/pdf_upload" target="_self">Upload News</a>
+                <a href="/Login_Signup" target="_self">Login/Signup</a>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -57,3 +81,5 @@ def show_footer():
             © 2025 AI Samachar | Built with ❤️ using Streamlit
         </div>
     """, unsafe_allow_html=True)
+
+

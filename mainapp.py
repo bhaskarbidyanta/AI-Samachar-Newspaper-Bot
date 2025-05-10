@@ -1,49 +1,24 @@
 import streamlit as st
-import pymongo
-from db import users_collection
+from urllib.parse import urlparse, parse_qs
+from components import show_header, show_footer
 
-# Initialize session state variables if not set
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "user_role" not in st.session_state:
-    st.session_state.user_role = None
-# Logout button
+st.set_page_config(page_title="AI Samachar", layout="wide")
+show_header()
 
-# Handle automatic redirection after login
-if st.session_state.logged_in:
-    if st.session_state.user_role == "admin":
-        st.switch_page("pages/pdf_upload.py")
-    else:
-        st.switch_page("pages/chatbot.py")
+# your page content here
+st.title("Welcome to AI Samachar - Home Page")
 
-# Streamlit UI for login/signup
-st.title("Multi-PDF Chatbot")
+def jump_to_page(page_name):
+    st.switch_page(f"pages/{page_name}.py")
 
-menu = st.sidebar.selectbox("Select an option", ["Login", "Sign Up"])
-
-if menu == "Login":
-    st.subheader("Login")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        user = users_collection.find_one({"email": email, "password": password})
-        if user:
-            st.session_state.logged_in = True
-            st.session_state.user_role = user["role"]  # "admin" or "user"
-            st.success("Login successful! Redirecting...")
-            st.rerun()
-        else:
-            st.error("Invalid email or password!")
-
-elif menu == "Sign Up":
-    st.subheader("Sign Up")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-    role = st.selectbox("Role", ["user", "admin"])
-    if st.button("Sign Up"):
-        if users_collection.find_one({"email": email}):
-            st.error("Email already registered!")
-        else:
-            users_collection.insert_one({"email": email, "password": password, "role": role})
-            st.success("Account created! Please login.")
-#This is a test line
+col1, col2 = st.columns([1, 1])
+col3, col4 = st.columns([1, 1])
+with col1:
+    st.button("News", on_click=jump_to_page("news"), args=("news",))
+with col2:
+    st.button("Chatbot", on_click=jump_to_page, args=("chatbot",))
+with col3:
+    st.button("Upload News", on_click=jump_to_page, args=("pdf_upload",))  
+with col4:
+    st.button("Login/Signup", on_click=jump_to_page, args=("Login_Signup",))
+show_footer()
