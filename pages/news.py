@@ -19,6 +19,7 @@ import numpy as np
 #import re
 from transformers import pipeline
 from components import inject_custom_css, show_header,show_footer
+from pathlib import Path
 
 show_header()
 
@@ -88,25 +89,19 @@ def download_pdfs_from_site(base_url, paper_code, selected_date):
             pdf_filename_main = os.path.join(download_dir_main, f"{paper_code}_{page_number}.pdf")
             with open(pdf_filename_main, 'wb') as file:
                 file.write(response.content)
-            st.success(f"Downloaded: {pdf_filename_main}")
+            #st.success(f"Downloaded: {pdf_filename_main}")
         else:
             pdf_filename_nc = os.path.join(download_dir_nc, f"{paper_code}_{page_number}.pdf")
             with open(pdf_filename_nc, 'wb') as file:
                 file.write(response.content)
-            st.success(f"Downloaded: {pdf_filename_nc}")
+            #st.success(f"Downloaded: {pdf_filename_nc}")
         
         page_number += 1  # Move to the next page
+        if page_number == max_pages:
+            st.success(f"Downloaded all {max_pages} pages of {paper_code}.")
+            break
 
 
-# Streamlit button to trigger the download
-if st.button("Download PDF from site"):
-    base_url = "https://www.ehitavada.com/encyc/6"
-    paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
-    try:
-        # Call the function to download PDFs starting from mpage_1
-        download_pdfs_from_site(base_url,paper_code,selected_date)
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
 
 def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selected_model):
     """This method will load PDFs from the specified directory, extract text, and process them."""
@@ -192,6 +187,14 @@ def detect_bias(text):
 
 # Usage in your Streamlit code
 if st.button("📥 Load Downloaded PDFs"):
+    base_url = "https://www.ehitavada.com/encyc/6"
+    paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
+    try:
+        # Call the function to download PDFs starting from mpage_1
+        download_pdfs_from_site(base_url,paper_code,selected_date)
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+
     formatted_date = selected_date.strftime("%Y-%m-%d")
     
     if paper_type == "Main Paper":
@@ -239,50 +242,6 @@ for question, answer in st.session_state.chat_history:
     st.write(f"**You:** {question}")
     st.write(f"**Bot:** {answer}")
 
-# Button for sentiment analysis
-if st.button("📊 Analyze Sentiment"):
-    if st.session_state.chat_history:
-        #sentiments = []
-        #for _, answer in st.session_state.chat_history:
-        #    sentiment_score = TextBlob(answer).sentiment.polarity
-        #    sentiments.append(sentiment_score)
-        latest_response = st.session_state.chat_history[-1][1]
-        sentiment_score = TextBlob(latest_response).sentiment.polarity
-            
-        if sentiment_score > 0.1:
-            sentiment_label = "😊 Positive"
-        elif sentiment_score < -0.1:
-            sentiment_label = "😟 Negative"
-        else:
-            sentiment_label = "😐 Neutral"
-            
-        st.subheader(f"🧠 Sentiment of Latest Response: {sentiment_label} ({sentiment_score:.2f})")
-    else:
-        st.warning("⚠️ No news updates found! Try fetching news first.")
-
-if st.button("📊 Analyze Bias"):
-    if st.session_state.qa_chain:
-        retrieved_docs = st.session_state.qa_chain.retriever.get_relevant_documents("politics")
-
-        if retrieved_docs:
-            for index, doc in enumerate(retrieved_docs, 1):
-                article_text = doc.page_content
-                st.subheader(f"📰 Bias Analysis of Document {index}")
-                
-                # Display a snippet of the document for context
-                st.write(f"**Analyzing Text (Snippet):** {article_text[:500]}...")
-                
-                # Analyze Bias
-                detected_label, scores = detect_bias(article_text[:1024])  # Limit to 1024 tokens
-                st.write({
-                    "Detected Bias": detected_label,
-                    "Scores": scores
-                })
-        else:
-            st.warning("⚠️ No relevant documents found for bias analysis.")
-    else:
-        st.warning("⚠️ QA Chain not initialized.")
-
 from googletrans import Translator
 
 translator = Translator()
@@ -296,20 +255,85 @@ def translate_text(text, target_language):
         return text  # Return original text if language is English
     return translated.text
 
-if st.button("Get answer in Hindi or Marathi!") and selected_options:
-    for option in selected_options:
-        query = options[option]
-        response = st.session_state.qa_chain.run(query)
-        translated_response = translate_text(response, language)
-        st.session_state.chat_history.append((option, translated_response))
-        st.write(f"**{option}:**", translated_response)
+col1, col2, col3 = st.columns([1, 1, 2])
 
-if st.button("Logout"):
-    st.session_state.clear()
-    st.switch_page("mainapp.py")
+# Button for sentiment analysis
+with col1:
+    if st.button("📊 Analyze Sentiment"):
+        if st.session_state.chat_history:
+        #sentiments = []
+        #for _, answer in st.session_state.chat_history:
+        #    sentiment_score = TextBlob(answer).sentiment.polarity
+        #    sentiments.append(sentiment_score)
+            latest_response = st.session_state.chat_history[-1][1]
+            sentiment_score = TextBlob(latest_response).sentiment.polarity
+            
+            if sentiment_score > 0.1:
+                sentiment_label = "😊 Positive"
+            elif sentiment_score < -0.1:
+                sentiment_label = "😟 Negative"
+            else:
+                sentiment_label = "😐 Neutral"
+            
+            st.subheader(f"🧠 Sentiment of Latest Response: {sentiment_label} ({sentiment_score:.2f})")
+        else:
+            st.warning("⚠️ No news updates found! Try fetching news first.")
+with col2:
+    if st.button("📊 Analyze Bias"):
+        if st.session_state.qa_chain:
+            retrieved_docs = st.session_state.qa_chain.retriever.get_relevant_documents("politics")
+
+            if retrieved_docs:
+                for index, doc in enumerate(retrieved_docs, 1):
+                    article_text = doc.page_content
+                    st.subheader(f"📰 Bias Analysis of Document {index}")
+                
+                    # Display a snippet of the document for context
+                    st.write(f"**Analyzing Text (Snippet):** {article_text[:500]}...")
+                
+                    # Analyze Bias
+                    detected_label, scores = detect_bias(article_text[:1024])  # Limit to 1024 tokens
+                    st.write({
+                        "Detected Bias": detected_label,
+                        "Scores": scores
+                    })
+            else:
+                st.warning("⚠️ No relevant documents found for bias analysis.")
+        else:
+            st.warning("⚠️ QA Chain not initialized.")
+with col3:
+    if st.button("Get answer in Hindi or Marathi!") and selected_options:
+        for option in selected_options:
+            query = options[option]
+            response = st.session_state.qa_chain.run(query)
+            translated_response = translate_text(response, language)
+            st.session_state.chat_history.append((option, translated_response))
+            st.write(f"**{option}:**", translated_response)
+
 
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+def show_online_pdf(pdf_url):
+    st.markdown(f"""
+        <iframe src="{pdf_url}" width="100%" height="600px" type="application/pdf"></iframe>
+    """, unsafe_allow_html=True)
+
+year = selected_date.year
+month = str(selected_date.month).zfill(2)
+day = str(selected_date.day).zfill(2)
+base_url = "https://www.ehitavada.com/encyc/6"
+paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
+
+# Construct full PDF URL
+page_number = st.number_input("📄 Page Number", min_value=1, max_value=12, step=1)
+pdf_url = f"{base_url}/{year}/{month}/{day}/{paper_code}_{page_number}.pdf"
+
+st.write(f"📄 Viewing: {pdf_url}")
+show_online_pdf(pdf_url)
+
+if st.button("Logout"):
+    st.session_state.clear()
+    st.switch_page("mainapp.py")
 
 show_footer()

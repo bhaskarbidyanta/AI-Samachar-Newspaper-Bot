@@ -27,3 +27,4 @@ PyMuPDF
 pdfplumber
 #tesseract-ocr
 tf-keras
+bcrypt

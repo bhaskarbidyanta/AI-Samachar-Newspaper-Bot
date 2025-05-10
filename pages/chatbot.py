@@ -133,14 +133,9 @@ if "qa_chain" in st.session_state:
                 st.text(f"You said: {voice_query}")
     
     options = {
-        "📌 Summarize": "Summarize the content in a few sentences.",
-        "⚽ Sports News": "Give me the latest sports news.",
-        "🌍 International News": "Provide me with the latest international news.",
-        "🇮🇳 National News": "Show me the latest national news in India.",
-        "🏙️ City News": "What are the latest updates in my city?",
-        "💼 Jobs": "List some job openings in India.",
-        "🚔 Crime News": "Provide recent crime news updates.",
-        "🏞️ Weather News":"Today's weather updates in the newspaper.",
+        "📌 Summarize": "Summarize the content in a 10-15 sentences.",
+        "Compare": "Compare the content in the selected pdfs and share difference between them in 5-10 sentences.",
+        "Relevance": "Check the relevance of the content in the selected pdfs.",
     }
     
     selected_options = st.multiselect("📢 Choose topics to get updates:", list(options.keys()))
@@ -186,42 +181,7 @@ if st.button("Logout"):
     st.session_state.clear()
     st.switch_page("mainapp.py")
 
-# Function to download PDFs from a URL
-def download_pdfs_from_site(base_url):
-    # Get the current date to create a folder
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    download_dir = os.path.join("news", current_date, "downloaded_pdfs")
-    
-    # Create the folder if it doesn't exist
-    os.makedirs(download_dir, exist_ok=True)
-    
-    page_number = 1  # Start from mpage_1
-    while True:
-        # Construct the URL for the current page
-        url = f"{base_url}_{page_number}.pdf"
-        response = requests.get(url)
-        
-        # If the URL returns a 404 error, stop downloading
-        if response.status_code == 404:
-            st.warning(f"Stopped downloading. {url} returned a 404 error.")
-            break
-        
-        # Save the PDF to the specified directory
-        pdf_filename = os.path.join(download_dir, f"mpage_{page_number}.pdf")
-        with open(pdf_filename, 'wb') as file:
-            file.write(response.content)
-        
-        # Notify user of the successful download
-        st.success(f"Downloaded: {pdf_filename}")
-        page_number += 1  # Move to the next page
 
-# Streamlit button to trigger the download
-if st.button("Download PDF from site"):
-    try:
-        # Call the function to download PDFs starting from mpage_1
-        download_pdfs_from_site("https://www.ehitavada.com/encyc/6/2025/03/22/Mpage")
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
 
 def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selected_model):
     """This method will load PDFs from the specified directory, extract text, and process them."""
@@ -278,19 +238,5 @@ def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selecte
 
     return qa_chain
 
-# Usage in your Streamlit code
-if st.button("📥 Load Downloaded PDFs"):
-    # Assuming the downloaded PDFs are in the folder created previously
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    download_dir = os.path.join("news", current_date, "downloaded_pdfs")
-    
-    if os.path.exists(download_dir):
-        # Process the downloaded PDFs and get the QA chain
-        qa_chain = load_and_process_pdfs(download_dir, google_api_key, EMBEDDING_MODEL, selected_model)
-        
-        if qa_chain:
-            st.session_state.qa_chain = qa_chain  # Store the chain in session for further use
-    else:
-        st.error("❌ No PDFs found in the expected directory. Please download PDFs first.")
 
 show_footer()
