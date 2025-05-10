@@ -255,7 +255,7 @@ def translate_text(text, target_language):
         return text  # Return original text if language is English
     return translated.text
 
-col1, col2, col3 = st.columns([1, 1, 2])
+col1, col2 = st.columns([1, 1])
 
 # Button for sentiment analysis
 with col1:
@@ -279,7 +279,15 @@ with col1:
         else:
             st.warning("⚠️ No news updates found! Try fetching news first.")
 with col2:
-    if st.button("📊 Analyze Bias"):
+    if st.button("Get answer in Hindi or Marathi!") and selected_options:
+        for option in selected_options:
+            query = options[option]
+            response = st.session_state.qa_chain.run(query)
+            translated_response = translate_text(response, language)
+            st.session_state.chat_history.append((option, translated_response))
+            st.write(f"**{option}:**", translated_response)
+
+if st.button("📊 Analyze Bias"):
         if st.session_state.qa_chain:
             retrieved_docs = st.session_state.qa_chain.retriever.get_relevant_documents("politics")
 
@@ -301,15 +309,6 @@ with col2:
                 st.warning("⚠️ No relevant documents found for bias analysis.")
         else:
             st.warning("⚠️ QA Chain not initialized.")
-with col3:
-    if st.button("Get answer in Hindi or Marathi!") and selected_options:
-        for option in selected_options:
-            query = options[option]
-            response = st.session_state.qa_chain.run(query)
-            translated_response = translate_text(response, language)
-            st.session_state.chat_history.append((option, translated_response))
-            st.write(f"**{option}:**", translated_response)
-
 
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
