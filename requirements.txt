@@ -31,5 +31,5 @@ bcrypt
 streamlit_community_navigation_bar
 #PyAudio
 gtts
-tempfile
+#tempfile
 langdetect

@@ -20,6 +20,9 @@ import numpy as np
 from transformers import pipeline
 from components import show_navbar,show_footer
 from pathlib import Path
+from gtts import gTTS
+#import tempfile
+from langdetect import detect
 
 def main():
     import os
@@ -268,7 +271,7 @@ def main():
     for question, answer in st.session_state.chat_history:
         st.write(f"**You:** {question}")
         st.write(f"**Bot:** {answer}")
-        
+    
     
     if st.sidebar.button("📊 Analyze Sentiment"):
         if st.session_state.chat_history:
