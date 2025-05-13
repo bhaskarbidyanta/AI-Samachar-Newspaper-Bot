@@ -28,3 +28,4 @@ pdfplumber
 #tesseract-ocr
 tf-keras
 bcrypt
+streamlit_community_navigation_bar
