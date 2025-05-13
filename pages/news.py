@@ -212,6 +212,21 @@ def main():
         else:
             st.error(f"❌ No PDFs found in {download_dir}. Please download PDFs first.")
 
+    from googletrans import Translator
+
+    translator = Translator()
+
+    # Sidebar language selector
+    language = st.sidebar.selectbox("🌐 Select Language:", ["English", "Hindi", "Marathi"])
+
+    def translate_text(text, target_language):
+        if target_language == "Hindi":
+            return translator.translate(text, dest='hi').text
+        elif target_language == "Marathi":
+            return translator.translate(text, dest='mr').text
+        else:
+            return text  # English - no translation
+
 
     user_input = st.text_input("💬 Ask a question about the PDFs:")
         
@@ -235,67 +250,45 @@ def main():
     selected_options = st.multiselect("📢 Choose topics to get updates:", list(options.keys()))
 
     if st.button("Get answer!"):
+        # Process predefined option queries
         if selected_options:
             for option in selected_options:
                 query = options[option]
                 response = st.session_state.qa_chain.run(query)
-                st.session_state.chat_history.append((option, response))
-            #st.write(f"**{option}:**", response)
+                translated_response = translate_text(response, language)
+                st.session_state.chat_history.append((option, translated_response))
 
+        # Process custom user input
         if user_input:
             response = st.session_state.qa_chain.run(user_input)
-            st.session_state.chat_history.append((user_input, response))
+            translated_response = translate_text(response, language)
+            st.session_state.chat_history.append((user_input, translated_response))
 
-    # Display chat history
+    # 💬 Display chat history
     for question, answer in st.session_state.chat_history:
         st.write(f"**You:** {question}")
         st.write(f"**Bot:** {answer}")
-
-    from googletrans import Translator
-
-    translator = Translator()
-    language = st.sidebar.selectbox("🌐 Select Language:", ["English", "Hindi", "Marathi"])
-    def translate_text(text, target_language):
-        if target_language == "Hindi":
-            translated = translator.translate(text, dest='hi')
-        elif target_language == "Marathi":
-            translated = translator.translate(text, dest='mr')
-        else:
-            return text  # Return original text if language is English
-        return translated.text
-
-    col1, col2 = st.columns([1, 1])
-
-    # Button for sentiment analysis
-    with col1:
-        if st.button("Get answer in Hindi or Marathi!") and selected_options:
-            for option in selected_options:
-                query = options[option]
-                response = st.session_state.qa_chain.run(query)
-                translated_response = translate_text(response, language)
-                st.session_state.chat_history.append((option, response))
-                st.write(f"**{option}:**", translated_response)
         
-    with col2:
-        if st.button("📊 Analyze Sentiment"):
-            if st.session_state.chat_history:
-            #sentiments = []
-            #for _, answer in st.session_state.chat_history:
-            #    sentiment_score = TextBlob(answer).sentiment.polarity
-            #    sentiments.append(sentiment_score)
-                latest_response = st.session_state.chat_history[-1][1]
-                sentiment_score = TextBlob(latest_response).sentiment.polarity
-                
-                if sentiment_score > 0.1:
-                    sentiment_label = "😊 Positive"
-                elif sentiment_score < -0.1:
-                    sentiment_label = "😟 Negative"
-                else:
-                    sentiment_label = "😐 Neutral"
-                
-                st.subheader(f"🧠 Sentiment of Latest Response: {sentiment_label} ({sentiment_score:.2f})")
+    
+    if st.button("📊 Analyze Sentiment"):
+        if st.session_state.chat_history:
+        #sentiments = []
+        #for _, answer in st.session_state.chat_history:
+        #    sentiment_score = TextBlob(answer).sentiment.polarity
+        #    sentiments.append(sentiment_score)
+            latest_response = st.session_state.chat_history[-1][1]
+            sentiment_score = TextBlob(latest_response).sentiment.polarity
+            
+            if sentiment_score > 0.1:
+                sentiment_label = "😊 Positive"
+            elif sentiment_score < -0.1:
+                sentiment_label = "😟 Negative"
             else:
-                st.warning("⚠️ No news updates found! Try fetching news first.")
+                sentiment_label = "😐 Neutral"
+            
+            st.subheader(f"🧠 Sentiment of Latest Response: {sentiment_label} ({sentiment_score:.2f})")
+        else:
+            st.warning("⚠️ No news updates found! Try fetching news first.")
         
 
     if st.button("📊 Analyze Bias"):
