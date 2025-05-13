@@ -1,24 +1,30 @@
 import streamlit as st
 from urllib.parse import urlparse, parse_qs
-from components import show_header, show_footer
+from components import show_navbar, show_footer
+import pages.news as news
+import pages.chatbot as chatbot
+import pages.pdf_upload as pdf_upload
+import pages.Login_Signup as login_signup
+
 
 st.set_page_config(page_title="AI Samachar", layout="wide")
-show_header()
 
 # your page content here
-st.title("Welcome to AI Samachar - Home Page")
+#st.title("Welcome to AI Samachar - Home Page")
 
-def jump_to_page(page_name):
-    st.switch_page(f"pages/{page_name}.py")
+selected_page = show_navbar()
 
-col1, col2 = st.columns([1, 1])
-col3, col4 = st.columns([1, 1])
-with col1:
-    st.button("News", on_click=jump_to_page("news"), args=("news",))
-with col2:
-    st.button("Chatbot", on_click=jump_to_page, args=("chatbot",))
-with col3:
-    st.button("Upload News", on_click=jump_to_page, args=("pdf_upload",))  
-with col4:
-    st.button("Login/Signup", on_click=jump_to_page, args=("Login_Signup",))
+if selected_page == "Home":
+    st.title("Welcome to AI Samachar - Home Page")
+elif selected_page == "News":
+    news.main()
+elif selected_page == "Chatbot":
+    chatbot.main()
+elif selected_page == "Pdf Upload":
+    pdf_upload.main()
+elif selected_page == "Login-Signup":
+    login_signup.main()
+else:
+    st.error("Page not found.")
+
 show_footer()

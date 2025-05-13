@@ -6,3 +6,5 @@ app1.py
 .streamlit
 news
 debug.py
+pages/__pycache__/*
+pages/__init__.py
