@@ -141,16 +141,17 @@ def main():
         
         selected_options = st.multiselect("📢 Choose topics to get updates:", list(options.keys()))
 
-        if st.button("Get answer!") and selected_options:
-            for option in selected_options:
-                query = options[option]
-                response = st.session_state.qa_chain.run(query)
-                st.session_state.chat_history.append((option, response))
-                #st.write(f"**{option}:**", response)
+        if st.button("Get answer!"):
+            if selected_options:
+                for option in selected_options:
+                    query = options[option]
+                    response = st.session_state.qa_chain.run(query)
+                    st.session_state.chat_history.append((option, response))
+            #st.write(f"**{option}:**", response)
 
-        if user_input:
-            response = st.session_state.qa_chain.run(user_input)
-            st.session_state.chat_history.append((user_input, response))
+            if user_input:
+                response = st.session_state.qa_chain.run(user_input)
+                st.session_state.chat_history.append((user_input, response))
         
         # Display chat history
         for question, answer in st.session_state.chat_history:
