@@ -213,6 +213,7 @@ def main():
             st.error(f"❌ No PDFs found in {download_dir}. Please download PDFs first.")
 
 
+    user_input = st.text_input("💬 Ask a question about the PDFs:")
         
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
@@ -224,22 +225,26 @@ def main():
         "💼 Jobs": "List all job openings mentioned in these pdfs.",
         "🚔 Crime News": "Provide recent crime news updates provided in these pdfs.",
         "🏞️ Weather News":"Today's weather updates in these newspaper pdfs.",
+        "💰 Business News": "Show me the latest business news in these pdfs.",
+        "📰 Politics": "What are the latest political news updates in these pdfs?",
+        "🗞️ Editorial": "Provide me with the editorial news in these pdfs.",
+        "🗳️ Election News": "Show me the latest election news in these pdfs.",
+        "War News": "Provide me with the latest war news in these pdfs.",
     }
         
     selected_options = st.multiselect("📢 Choose topics to get updates:", list(options.keys()))
 
-    if st.button("Get answer!") and selected_options :
-        for option in selected_options:
-            query = options[option]
-            response = st.session_state.qa_chain.run(query)
-            st.session_state.chat_history.append((option, response))
+    if st.button("Get answer!"):
+        if selected_options:
+            for option in selected_options:
+                query = options[option]
+                response = st.session_state.qa_chain.run(query)
+                st.session_state.chat_history.append((option, response))
             #st.write(f"**{option}:**", response)
 
-    #user_input = st.text_input("Ask a question about the news:")
-
-    #if user_input:
-    #    response = st.session_state.qa_chain.run(user_input)
-    #    st.session_state.chat_history.append((user_input, response))
+        if user_input:
+            response = st.session_state.qa_chain.run(user_input)
+            st.session_state.chat_history.append((user_input, response))
 
     # Display chat history
     for question, answer in st.session_state.chat_history:
@@ -263,6 +268,15 @@ def main():
 
     # Button for sentiment analysis
     with col1:
+        if st.button("Get answer in Hindi or Marathi!") and selected_options:
+            for option in selected_options:
+                query = options[option]
+                response = st.session_state.qa_chain.run(query)
+                translated_response = translate_text(response, language)
+                st.session_state.chat_history.append((option, response))
+                st.write(f"**{option}:**", translated_response)
+        
+    with col2:
         if st.button("📊 Analyze Sentiment"):
             if st.session_state.chat_history:
             #sentiments = []
@@ -282,14 +296,7 @@ def main():
                 st.subheader(f"🧠 Sentiment of Latest Response: {sentiment_label} ({sentiment_score:.2f})")
             else:
                 st.warning("⚠️ No news updates found! Try fetching news first.")
-    with col2:
-        if st.button("Get answer in Hindi or Marathi!") and selected_options:
-            for option in selected_options:
-                query = options[option]
-                response = st.session_state.qa_chain.run(query)
-                translated_response = translate_text(response, language)
-                st.session_state.chat_history.append((option, translated_response))
-                st.write(f"**{option}:**", translated_response)
+        
 
     if st.button("📊 Analyze Bias"):
             if st.session_state.qa_chain:
