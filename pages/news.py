@@ -270,28 +270,38 @@ def main():
         st.write(f"**Bot:** {answer}")
         
     
-    if st.button("📊 Analyze Sentiment"):
+    if st.sidebar.button("📊 Analyze Sentiment"):
         if st.session_state.chat_history:
-        #sentiments = []
-        #for _, answer in st.session_state.chat_history:
-        #    sentiment_score = TextBlob(answer).sentiment.polarity
-        #    sentiments.append(sentiment_score)
             latest_response = st.session_state.chat_history[-1][1]
-            sentiment_score = TextBlob(latest_response).sentiment.polarity
             
-            if sentiment_score > 0.1:
-                sentiment_label = "😊 Positive"
-            elif sentiment_score < -0.1:
-                sentiment_label = "😟 Negative"
-            else:
-                sentiment_label = "😐 Neutral"
-            
-            st.subheader(f"🧠 Sentiment of Latest Response: {sentiment_label} ({sentiment_score:.2f})")
+            # Detect and translate
+            try:
+                detected = translator.detect(latest_response)
+                if detected.lang != 'en':
+                    translated = translator.translate(latest_response, src=detected.lang, dest='en')
+                    text_for_analysis = translated.text
+                else:
+                    text_for_analysis = latest_response
+
+                sentiment_score = TextBlob(text_for_analysis).sentiment.polarity
+                
+                if sentiment_score > 0.1:
+                    sentiment_label = "😊 Positive"
+                elif sentiment_score < -0.1:
+                    sentiment_label = "😟 Negative"
+                else:
+                    sentiment_label = "😐 Neutral"
+                
+                st.subheader(f"🧠 Sentiment of Latest Response: {sentiment_label} ({sentiment_score:.2f})")
+
+            except Exception as e:
+                st.error(f"Translation or sentiment error: {e}")
+
         else:
             st.warning("⚠️ No news updates found! Try fetching news first.")
         
 
-    if st.button("📊 Analyze Bias"):
+    if st.sidebar.button("📊 Analyze Bias"):
             if st.session_state.qa_chain:
                 retrieved_docs = st.session_state.qa_chain.retriever.get_relevant_documents("politics")
 
