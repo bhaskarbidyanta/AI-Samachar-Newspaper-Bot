@@ -21,7 +21,8 @@ from transformers import pipeline
 from components import show_navbar,show_footer
 from pathlib import Path
 from gtts import gTTS
-#import tempfile
+import base64
+import io
 from langdetect import detect
 
 def main():
@@ -272,6 +273,38 @@ def main():
         st.write(f"**You:** {question}")
         st.write(f"**Bot:** {answer}")
     
+    if st.button("🔊 Get Audio of Last Bot Response"):
+        if st.session_state.chat_history:
+            last_response = st.session_state.chat_history[-1][1]  # just the bot reply
+
+            # Detect language
+            lang = detect(last_response)
+            lang_map = {'en': 'en', 'hi': 'hi', 'mr': 'mr'}
+
+            if lang not in lang_map:
+                st.warning(f"⚠️ Detected language '{lang}' not supported for audio.")
+            else:
+                try:
+                    tts = gTTS(text=last_response, lang=lang_map[lang])
+                    # Save to memory (BytesIO)
+                    audio_bytes = io.BytesIO()
+                    tts.write_to_fp(audio_bytes)
+                    audio_bytes.seek(0)
+
+                    # Base64 encode for streamlit audio
+                    b64_audio = base64.b64encode(audio_bytes.read()).decode()
+                    audio_html = f"""
+                    <audio controls autoplay>
+                        <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3">
+                        Your browser does not support the audio element.
+                    </audio>
+                    """
+                    st.markdown(audio_html, unsafe_allow_html=True)
+                    st.success(f"🎧 Playing response in {lang.upper()}")
+                except Exception as e:
+                    st.error(f"❌ Audio generation failed: {e}")
+        else:
+            st.warning("⚠️ No response available yet.")
     
     if st.sidebar.button("📊 Analyze Sentiment"):
         if st.session_state.chat_history:
@@ -342,7 +375,7 @@ def main():
     paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
 
     # Construct full PDF URL
-    page_number = st.number_input("📄 Page Number", min_value=1, max_value=12, step=1)
+    page_number = st.sidebar.number_input("📄 Page Number", min_value=1, max_value=12, step=1)
     pdf_url = f"{base_url}/{year}/{month}/{day}/{paper_code}_{page_number}.pdf"
 
     st.write(f"📄 Viewing: {pdf_url}")
