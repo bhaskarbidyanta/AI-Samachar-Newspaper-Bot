@@ -248,7 +248,19 @@ def main():
         "📰 Politics": "What are the latest political news updates in these pdfs?",
         "🗞️ Editorial": "Provide me with the editorial news in these pdfs.",
         "🗳️ Election News": "Show me the latest election news in these pdfs.",
-        "War News": "Provide me with the latest war news in these pdfs.",
+        "War News": "Summarize with the latest war news in these pdfs.",
+        "First Page": "Summarize the first page of these pdfs.",
+        "Second Page": "Summarize the second page of these pdfs.",
+        "Third Page": "Summarize the third page of these pdfs.",
+        "Fourth Page": "Summarize the fourth page of these pdfs.",
+        "Fifth Page": "Summarize the fifth page of these pdfs.",
+        "Sixth Page": "Summarize the sixth page of these pdfs.",
+        "Seventh Page": "Summarize the seventh page of these pdfs.",
+        "Eighth Page": "Summarize the eighth page of these pdfs.",
+        "Ninth Page": "Summarize the ninth page of these pdfs.",
+        "Tenth Page": "Summarize the tenth page of these pdfs.",
+        "Eleventh Page": "Summarize the eleventh page of these pdfs.",
+        "Twelfth Page": "Summarize the twelfth page of these pdfs.",
     }
         
     selected_options = st.multiselect("📢 Choose topics to get updates:", list(options.keys()))
@@ -268,11 +280,36 @@ def main():
             translated_response = translate_text(response, language)
             st.session_state.chat_history.append((user_input, translated_response))
 
+    # Function to render message bubbles
+    def render_message(message, sender="user"):
+        if sender == "user":
+            alignment = "right"
+            bg_color = "#DCF8C6"  # WhatsApp greenish for user
+            label = "🙋 You"
+        else:
+            alignment = "left"
+            bg_color = "#E6E6FA"  # Light purple for bot
+            label = "🤖 Bot"
+
+        st.markdown(
+            f"""
+            <div style='text-align: {alignment}; margin: 10px 0;'>
+                <div style='display: inline-block; background-color: {bg_color}; 
+                            padding: 10px 15px; border-radius: 10px; max-width: 80%;'>
+                    <strong>{label}</strong><br>{message}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
     # 💬 Display chat history
     for question, answer in st.session_state.chat_history:
-        st.write(f"**You:** {question}")
-        st.write(f"**Bot:** {answer}")
-    
+        render_message(question, sender="user")
+        render_message(answer, sender="bot")
+        
+    # Add a button to clear chat history
     if st.button("🔊 Get Audio of Last Bot Response"):
         if st.session_state.chat_history:
             last_response = st.session_state.chat_history[-1][1]  # just the bot reply
@@ -364,8 +401,8 @@ def main():
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
     def show_online_pdf(pdf_url):
-        st.subheader("📄 Click below to view the PDF:")
-        st.markdown(f'[📄 View PDF]({pdf_url})', unsafe_allow_html=True)
+        st.sidebar.subheader("📄 Click below to view the PDF:")
+        st.sidebar.markdown(f'[📄 View PDF]({pdf_url})', unsafe_allow_html=True)
 
 
     year = selected_date.year
