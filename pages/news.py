@@ -232,7 +232,7 @@ def main():
             return text  # English - no translation
 
 
-    user_input = st.text_input("💬 Ask a question about the PDFs:")
+    user_input = st.chat_input("💬 Ask a question about the PDFs:")
         
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
@@ -263,22 +263,21 @@ def main():
         "Twelfth Page": "Summarize the twelfth page of these pdfs.",
     }
         
-    selected_options = st.multiselect("📢 Choose topics to get updates:", list(options.keys()))
+    selected_options = st.sidebar.multiselect("📢 Choose topics to get updates:", list(options.keys()))
 
-    if st.button("Get answer!"):
-        # Process predefined option queries
-        if selected_options:
-            for option in selected_options:
-                query = options[option]
-                response = st.session_state.qa_chain.run(query)
-                translated_response = translate_text(response, language)
-                st.session_state.chat_history.append((option, translated_response))
-
-        # Process custom user input
-        if user_input:
-            response = st.session_state.qa_chain.run(user_input)
+    
+    if selected_options:
+        for option in selected_options:
+            query = options[option]
+            response = st.session_state.qa_chain.run(query)
             translated_response = translate_text(response, language)
-            st.session_state.chat_history.append((user_input, translated_response))
+            st.session_state.chat_history.append((option, translated_response))
+
+    # Process custom user input
+    if user_input:
+        response = st.session_state.qa_chain.run(user_input)
+        translated_response = translate_text(response, language)
+        st.session_state.chat_history.append((user_input, translated_response))
 
     # Function to render message bubbles
     def render_message(message, sender="user"):
