@@ -232,7 +232,7 @@ def main():
             return text  # English - no translation
 
 
-    user_input = st.chat_input("💬 Ask a question about the PDFs:")
+    #user_input = st.chat_input("💬 Ask a question about the PDFs:")
         
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
@@ -262,19 +262,22 @@ def main():
         "Eleventh Page": "Summarize the eleventh page of these pdfs.",
         "Twelfth Page": "Summarize the twelfth page of these pdfs.",
     }
-        
-    selected_options = st.sidebar.multiselect("📢 Choose topics to get updates:", list(options.keys()))
+
+    with st.chat_message("user"):    
+        selected_option = st.selectbox("📢 Choose a quick prompt or type your own:", [""]+ list(options.keys()))
+
+    user_input = st.chat_input("💬 Ask a question about the PDFs:")
 
     
-    if selected_options:
-        for option in selected_options:
-            query = options[option]
-            response = st.session_state.qa_chain.run(query)
-            translated_response = translate_text(response, language)
-            st.session_state.chat_history.append((option, translated_response))
+    if selected_option and not user_input:
+        #for option in selected_options:
+        query = options[selected_option]
+        response = st.session_state.qa_chain.run(query)
+        translated_response = translate_text(response, language)
+        st.session_state.chat_history.append((selected_option, translated_response))
 
     # Process custom user input
-    if user_input:
+    elif user_input:
         response = st.session_state.qa_chain.run(user_input)
         translated_response = translate_text(response, language)
         st.session_state.chat_history.append((user_input, translated_response))
