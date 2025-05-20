@@ -233,6 +233,35 @@ def main():
 
 
     #user_input = st.chat_input("💬 Ask a question about the PDFs:")
+    # Function to render message bubbles
+    def render_message(message, sender="user"):
+        if sender == "user":
+            alignment = "right"
+            bg_color = "#DCF8C6"  # WhatsApp greenish for user
+            label = "🙋 You"
+        else:
+            alignment = "left"
+            bg_color = "#E6E6FA"  # Light purple for bot
+            label = "🤖 Bot"
+
+        st.markdown(
+            f"""
+            <div style='text-align: {alignment}; margin: 10px 0;'>
+                <div style='display: inline-block; background-color: {bg_color}; 
+                            padding: 10px 15px; border-radius: 10px; max-width: 80%;'>
+                    <strong>{label}</strong><br>{message}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+    # 💬 Display chat history
+    for question, answer in st.session_state.chat_history:
+        render_message(question, sender="user")
+        render_message(answer, sender="bot")
+
         
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
@@ -262,55 +291,52 @@ def main():
         "Eleventh Page": "Summarize the eleventh page of these pdfs.",
         "Twelfth Page": "Summarize the twelfth page of these pdfs.",
     }
+    # Quick prompt buttons shown above chat_input
+    st.markdown("### 🔖 Quick Prompts")
+    cols = st.columns(3)
+    for i, (label, prompt) in enumerate(options.items()):
+        if cols[i % 3].button(label):
+            response = st.session_state.qa_chain.run(prompt)
+            translated_response = translate_text(response, language)
+            st.session_state.chat_history.append((label, translated_response))
 
-    with st.chat_message("user"):    
-        selected_option = st.selectbox("📢 Choose a quick prompt or type your own:", [""]+ list(options.keys()))
+    # Then normal chat input
+    user_input = st.chat_input("💬 Or ask something else:")
 
-    user_input = st.chat_input("💬 Ask a question about the PDFs:")
-
-    
-    if selected_option and not user_input:
-        #for option in selected_options:
-        query = options[selected_option]
-        response = st.session_state.qa_chain.run(query)
-        translated_response = translate_text(response, language)
-        st.session_state.chat_history.append((selected_option, translated_response))
-
-    # Process custom user input
-    elif user_input:
+    if user_input:
         response = st.session_state.qa_chain.run(user_input)
         translated_response = translate_text(response, language)
         st.session_state.chat_history.append((user_input, translated_response))
 
-    # Function to render message bubbles
-    def render_message(message, sender="user"):
-        if sender == "user":
-            alignment = "right"
-            bg_color = "#DCF8C6"  # WhatsApp greenish for user
-            label = "🙋 You"
-        else:
-            alignment = "left"
-            bg_color = "#E6E6FA"  # Light purple for bot
-            label = "🤖 Bot"
+    # with st.chat_message("user"):
+    #     selected_option = st.selectbox("📢 Choose a prompt (or ignore and type your own below):", [""] + list(options.keys()))
 
-        st.markdown(
-            f"""
-            <div style='text-align: {alignment}; margin: 10px 0;'>
-                <div style='display: inline-block; background-color: {bg_color}; 
-                            padding: 10px 15px; border-radius: 10px; max-width: 80%;'>
-                    <strong>{label}</strong><br>{message}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    # # Step 2: Convert selected option into prefilled query
+    # prefill_query = options[selected_option] if selected_option else ""
 
+    # # Step 3: Let user type/edit their query (pre-filled if dropdown was used)
+    # user_query = st.chat_input("💬 Ask a question about the PDFs:", value=prefill_query)
 
-    # 💬 Display chat history
-    for question, answer in st.session_state.chat_history:
-        render_message(question, sender="user")
-        render_message(answer, sender="bot")
-        
+    # # Step 4: Submit only when they press Enter / Submit (no automatic processing on dropdown)
+    # if user_query:
+    #     response = st.session_state.qa_chain.run(user_query)
+    #     translated_response = translate_text(response, language)
+    #     st.session_state.chat_history.append((user_query, translated_response))
+
+    
+    # if selected_option and not user_input:
+    #     #for option in selected_options:
+    #     query = options[selected_option]
+    #     response = st.session_state.qa_chain.run(query)
+    #     translated_response = translate_text(response, language)
+    #     st.session_state.chat_history.append((selected_option, translated_response))
+
+    # Process custom user query
+    # if user_query:
+    #     response = st.session_state.qa_chain.run(user_input)
+    #     translated_response = translate_text(response, language)
+    #     st.session_state.chat_history.append((user_input, translated_response))
+    
     # Add a button to clear chat history
     if st.button("🔊 Get Audio of Last Bot Response"):
         if st.session_state.chat_history:
