@@ -262,6 +262,9 @@ def main():
         render_message(question, sender="user")
         render_message(answer, sender="bot")
 
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+
         
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
@@ -292,21 +295,28 @@ def main():
         "Twelfth Page": "Summarize the twelfth page of these pdfs.",
     }
     # Quick prompt buttons shown above chat_input
-    st.markdown("### 🔖 Quick Prompts")
-    cols = st.columns(3)
-    for i, (label, prompt) in enumerate(options.items()):
-        if cols[i % 3].button(label):
-            response = st.session_state.qa_chain.run(prompt)
-            translated_response = translate_text(response, language)
-            st.session_state.chat_history.append((label, translated_response))
+    with st.chat_message("user"):
+        selected_option = st.selectbox(
+            "📢 Choose a quick prompt or type your own below 👇",
+            [""] + list(options.keys())
+        )
 
     # Then normal chat input
     user_input = st.chat_input("💬 Or ask something else:")
 
-    if user_input:
+    if selected_option and not user_input:
+        query = options[selected_option]
+        response = st.session_state.qa_chain.run(query)
+        translated_response = translate_text(response, language)
+        st.session_state.chat_history.append((selected_option, translated_response))
+        st.session_state.selected_option = None  # Reset selected option
+        st.rerun()  # To immediately reflect in chat
+
+    elif user_input:
         response = st.session_state.qa_chain.run(user_input)
         translated_response = translate_text(response, language)
-        st.session_state.chat_history.append((user_input, translated_response))
+        st.session_state.chat_history.append((user_input, translated_response))        
+        st.rerun()  # To immediately reflect in chat
 
     # with st.chat_message("user"):
     #     selected_option = st.selectbox("📢 Choose a prompt (or ignore and type your own below):", [""] + list(options.keys()))
