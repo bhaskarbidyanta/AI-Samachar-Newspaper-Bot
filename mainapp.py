@@ -12,7 +12,16 @@ st.set_page_config(page_title="AI Samachar", layout="wide")
 # your page content here
 #st.title("Welcome to AI Samachar - Home Page")
 
-selected_page = show_navbar()
+if "selected_page" not in st.session_state:
+    st.session_state.selected_page = "Home"  # default page
+
+# Show navbar and update only if changed
+selected = show_navbar()
+if selected != st.session_state.selected_page:
+    st.session_state.selected_page = selected
+    st.rerun()
+
+selected_page = st.session_state.selected_page
 
 if selected_page == "Home":
     st.title("Welcome to AI Samachar - Home Page")
