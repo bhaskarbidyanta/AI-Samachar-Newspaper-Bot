@@ -312,38 +312,29 @@ def main():
         "Twelfth Page": "Summarize the twelfth page of these pdfs.",
     }
     # --- UI ---
-    with st.chat_message("user"):
-        st.selectbox("📢 Choose a prompt (optional)", [""] + list(options.keys()), key="dropdown_value")
-        text = st.text_input("💬 Type your query here", key="input_text")
-        if st.button("📨 Send"):
-            st.session_state.submitted = True
+    # Input area
+    col1, col2 = st.columns([6, 1])
+    with col1:
+        selected_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()))
+        user_input = st.text_input("💬 Or type your message")
 
-    if st.session_state.submitted:
-        query = text.strip()
+    with col2:
+        if st.button("Send"):
+            if user_input.strip():
+                query = user_input.strip()
+            elif selected_option:
+                query = options[selected_option]
+            else:
+                query = None
 
-        # Agar input empty hai but dropdown se selected hai
-        if not query and st.session_state.dropdown_value:
-            query = options[st.session_state.dropdown_value]
+            if query:
+                # Your actual logic
+                response = st.session_state.qa_chain.run(query)
+                translated_response = translate_text(response, language)
 
-        if query:
-            # Replace this with your actual logic
-            response = st.session_state.qa_chain.run(query)
-            translated = translate_text(response, language)
-            st.session_state.chat_history.append((query, translated))
-
-        # RESET after response is handled
-        st.session_state.submitted = False
-
-        # Force a clean rerun where widgets reset naturally
-        st.rerun()
-
-    # Display chat history
-    for msg, reply in st.session_state.chat_history:
-        with st.chat_message("user"):
-            st.markdown(msg)
-        with st.chat_message("assistant"):
-            st.markdown(reply)
-    # # Quick prompt buttons shown above chat_input
+                # Store in chat
+                st.session_state.chat_history.append((query, translated_response))
+        # # Quick prompt buttons shown above chat_input
     # with st.chat_message("user"):
     #     selected_option = st.selectbox(
     #         "📢 Choose a quick prompt or type your own below 👇",
