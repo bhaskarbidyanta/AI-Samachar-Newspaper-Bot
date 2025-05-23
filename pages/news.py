@@ -282,6 +282,12 @@ def main():
 
     if "submitted" not in st.session_state:
         st.session_state.submitted = False
+    
+    #if "temp_option" not in st.session_state:
+    #    st.session_state.temp_option = ""
+
+    if "send_triggered" not in st.session_state:
+        st.session_state.send_triggered = False
         
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
@@ -313,27 +319,35 @@ def main():
     }
     # --- UI ---
     # Input area
+    # Input section
     col1, col2 = st.columns([6, 1])
     with col1:
-        selected_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()))
-        user_input = st.text_input("💬 Or type your message")
+        st.session_state.temp_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()), key="selectbox")
+        st.session_state.temp_input = st.text_input("💬 Or type your message", key="text_input")
 
     with col2:
-        if st.button("Send"):
-            if user_input.strip():
-                query = user_input.strip()
-            elif selected_option:
-                query = options[selected_option]
-            else:
-                query = None
+        send = st.button("Send")
 
-            if query:
-                # Your actual logic
-                response = st.session_state.qa_chain.run(query)
-                translated_response = translate_text(response, language)
+    # Processing logic
+    if send:
+        if st.session_state.temp_input.strip():
+            query = st.session_state.temp_input.strip()
+        elif st.session_state.temp_option:
+            query = options[st.session_state.temp_option]
+        else:
+            query = None
 
-                # Store in chat
-                st.session_state.chat_history.append((query, translated_response))
+        if query:
+            # Replace with actual model and translation logic
+            response = st.session_state.qa_chain.run(query)
+            translated_response = translate_text(response, language)
+
+            st.session_state.chat_history.append((query, translated_response))
+
+            # "Reset" inputs (can’t clear selectbox/text_input forcibly, but this will visually reset on rerender)
+            st.session_state.temp_input = ""
+            st.session_state.temp_option = ""
+            st.rerun()
         # # Quick prompt buttons shown above chat_input
     # with st.chat_message("user"):
     #     selected_option = st.selectbox(
