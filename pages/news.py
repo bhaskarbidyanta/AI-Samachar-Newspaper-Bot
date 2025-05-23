@@ -265,6 +265,8 @@ def main():
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
 
+    if "selected_option" not in st.session_state:
+        st.session_state.selected_option = ""
         
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
@@ -301,15 +303,18 @@ def main():
             [""] + list(options.keys())
         )
 
+    if selected_option and st.session_state.selected_option != selected_option:
+        st.session_state.selected_option = selected_option
+
     # Then normal chat input
     user_input = st.chat_input("💬 Or ask something else:")
 
-    if selected_option and not user_input:
+    if st.session_state.selected_option and not user_input:
         query = options[selected_option]
         response = st.session_state.qa_chain.run(query)
         translated_response = translate_text(response, language)
-        st.session_state.chat_history.append((selected_option, translated_response))
-        st.session_state.selected_option = None  # Reset selected option
+        st.session_state.chat_history.append((st.session_state.selected_option, translated_response))
+        st.session_state.selected_option = ""  # Reset selected option
         st.rerun()  # To immediately reflect in chat
 
     elif user_input:
