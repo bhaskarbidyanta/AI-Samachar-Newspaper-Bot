@@ -258,9 +258,9 @@ def main():
 
 
     # 💬 Display chat history
-    for question, answer in st.session_state.chat_history:
-        render_message(question, sender="user")
-        render_message(answer, sender="bot")
+    #for question, answer in st.session_state.chat_history:
+    #    render_message(question, sender="user")
+    #    render_message(answer, sender="bot")
 
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
@@ -288,6 +288,12 @@ def main():
 
     if "send_triggered" not in st.session_state:
         st.session_state.send_triggered = False
+    
+    if "message_trigger" not in st.session_state:
+        st.session_state["message_trigger"] = False
+
+    if "last_query" not in st.session_state:
+        st.session_state["last_query"] = ""
         
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
@@ -347,7 +353,23 @@ def main():
             # "Reset" inputs (can’t clear selectbox/text_input forcibly, but this will visually reset on rerender)
             st.session_state.temp_input = ""
             st.session_state.temp_option = ""
-            st.rerun()
+            st.session_state["last_query"] = query
+
+            st.session_state.message_trigger = True
+            #st.rerun()
+    if st.session_state.message_trigger:
+        query = st.session_state["last_query"]
+        response = f"🤖 Response to: {query}"  # 🔁 Replace with your QA chain logic
+
+        st.session_state.chat_history.append((query, response))
+        st.session_state.message_trigger = False  # 🔕 Reset trigger
+
+    # Display chat
+    for user_msg, bot_msg in st.session_state.chat_history:
+        with st.chat_message("user"):
+            st.markdown(user_msg)
+        with st.chat_message("assistant"):
+            st.markdown(bot_msg)        
         # # Quick prompt buttons shown above chat_input
     # with st.chat_message("user"):
     #     selected_option = st.selectbox(
