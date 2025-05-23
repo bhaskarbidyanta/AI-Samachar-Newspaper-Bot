@@ -267,6 +267,21 @@ def main():
 
     if "selected_option" not in st.session_state:
         st.session_state.selected_option = ""
+
+    if "selected_page" not in st.session_state:
+        st.session_state.selected_page = "News"
+    
+    if "text_input" not in st.session_state:
+        st.session_state.text_input = ""
+
+    if "submit_triggered" not in st.session_state:
+        st.session_state.submit_triggered = False
+
+    if "dropdown_value" not in st.session_state:
+        st.session_state.dropdown_value = ""
+
+    if "submitted" not in st.session_state:
+        st.session_state.submitted = False
         
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
@@ -296,32 +311,64 @@ def main():
         "Eleventh Page": "Summarize the eleventh page of these pdfs.",
         "Twelfth Page": "Summarize the twelfth page of these pdfs.",
     }
-    # Quick prompt buttons shown above chat_input
+    # --- UI ---
     with st.chat_message("user"):
-        selected_option = st.selectbox(
-            "📢 Choose a quick prompt or type your own below 👇",
-            [""] + list(options.keys())
-        )
+        st.selectbox("📢 Choose a prompt (optional)", [""] + list(options.keys()), key="dropdown_value")
+        text = st.text_input("💬 Type your query here", key="input_text")
+        if st.button("📨 Send"):
+            st.session_state.submitted = True
 
-    if selected_option and st.session_state.selected_option != selected_option:
-        st.session_state.selected_option = selected_option
+    if st.session_state.submitted:
+        query = text.strip()
 
-    # Then normal chat input
-    user_input = st.chat_input("💬 Or ask something else:")
+        # Agar input empty hai but dropdown se selected hai
+        if not query and st.session_state.dropdown_value:
+            query = options[st.session_state.dropdown_value]
 
-    if st.session_state.selected_option and not user_input:
-        query = options[selected_option]
-        response = st.session_state.qa_chain.run(query)
-        translated_response = translate_text(response, language)
-        st.session_state.chat_history.append((st.session_state.selected_option, translated_response))
-        st.session_state.selected_option = ""  # Reset selected option
-        st.rerun()  # To immediately reflect in chat
+        if query:
+            # Replace this with your actual logic
+            response = st.session_state.qa_chain.run(query)
+            translated = translate_text(response, language)
+            st.session_state.chat_history.append((query, translated))
 
-    elif user_input:
-        response = st.session_state.qa_chain.run(user_input)
-        translated_response = translate_text(response, language)
-        st.session_state.chat_history.append((user_input, translated_response))        
-        st.rerun()  # To immediately reflect in chat
+        # RESET after response is handled
+        st.session_state.submitted = False
+
+        # Force a clean rerun where widgets reset naturally
+        st.rerun()
+
+    # Display chat history
+    for msg, reply in st.session_state.chat_history:
+        with st.chat_message("user"):
+            st.markdown(msg)
+        with st.chat_message("assistant"):
+            st.markdown(reply)
+    # # Quick prompt buttons shown above chat_input
+    # with st.chat_message("user"):
+    #     selected_option = st.selectbox(
+    #         "📢 Choose a quick prompt or type your own below 👇",
+    #         [""] + list(options.keys())
+    #     )
+
+    # if selected_option and st.session_state.selected_option != selected_option:
+    #     st.session_state.selected_option = selected_option
+
+    # # Then normal chat input
+    # user_input = st.chat_input("💬 Or ask something else:")
+
+    # if st.session_state.selected_option and not user_input:
+    #     query = options[selected_option]
+    #     response = st.session_state.qa_chain.run(query)
+    #     translated_response = translate_text(response, language)
+    #     st.session_state.chat_history.append((st.session_state.selected_option, translated_response))
+    #     st.session_state.selected_option = ""  # Reset selected option
+    #     st.rerun()  # To immediately reflect in chat
+
+    # elif user_input:
+    #     response = st.session_state.qa_chain.run(user_input)
+    #     translated_response = translate_text(response, language)
+    #     st.session_state.chat_history.append((user_input, translated_response))        
+    #     st.rerun()  # To immediately reflect in chat
 
     # with st.chat_message("user"):
     #     selected_option = st.selectbox("📢 Choose a prompt (or ignore and type your own below):", [""] + list(options.keys()))
