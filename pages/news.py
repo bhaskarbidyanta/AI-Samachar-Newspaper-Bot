@@ -326,50 +326,51 @@ def main():
     # --- UI ---
     # Input area
     # Input section
+    # Inputs
     col1, col2 = st.columns([6, 1])
     with col1:
-        st.session_state.temp_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()), key="selectbox")
-        st.session_state.temp_input = st.text_input("💬 Or type your message", key="text_input")
+        temp_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()), key="selectbox")
+        temp_input = st.text_input("💬 Or type your message", key="text_input")
 
     with col2:
         send = st.button("Send")
 
-    # Processing logic
+    # Initialize trigger safely
+    if "message_trigger" not in st.session_state:
+        st.session_state.message_trigger = False
+    if "last_query" not in st.session_state:
+        st.session_state.last_query = ""
+
+    # Process input
     if send:
-        if st.session_state.temp_input.strip():
-            query = st.session_state.temp_input.strip()
-        elif st.session_state.temp_option:
-            query = options[st.session_state.temp_option]
+        if temp_input.strip():
+            query = temp_input.strip()
+        elif temp_option:
+            query = options[temp_option]
         else:
             query = None
 
         if query:
-            # Replace with actual model and translation logic
-            response = st.session_state.qa_chain.run(query)
-            translated_response = translate_text(response, language)
-
-            st.session_state.chat_history.append((query, translated_response))
-
-            # "Reset" inputs (can’t clear selectbox/text_input forcibly, but this will visually reset on rerender)
-            st.session_state.temp_input = ""
-            st.session_state.temp_option = ""
-            st.session_state["last_query"] = query
-
+            st.session_state.last_query = query
             st.session_state.message_trigger = True
-            #st.rerun()
+
+    # Run model and update history ONCE per input
     if st.session_state.message_trigger:
-        query = st.session_state["last_query"]
-        response = f"🤖 Response to: {query}"  # 🔁 Replace with your QA chain logic
+        query = st.session_state.last_query
+        response = st.session_state.qa_chain.run(query)
+        translated_response = translate_text(response, language)
 
-        st.session_state.chat_history.append((query, response))
-        st.session_state.message_trigger = False  # 🔕 Reset trigger
+        st.session_state.chat_history.append((query, translated_response))
+        st.session_state.message_trigger = False
 
-    # Display chat
+    # Show chat history
     for user_msg, bot_msg in st.session_state.chat_history:
         with st.chat_message("user"):
             st.markdown(user_msg)
         with st.chat_message("assistant"):
-            st.markdown(bot_msg)        
+            st.markdown(bot_msg)
+
+       
         # # Quick prompt buttons shown above chat_input
     # with st.chat_message("user"):
     #     selected_option = st.selectbox(
