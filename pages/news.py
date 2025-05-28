@@ -102,10 +102,12 @@ def main():
                     file.write(response.content)
                 #st.success(f"Downloaded: {pdf_filename_nc}")
             
-            page_number += 1  # Move to the next page
+              # Move to the next page
             if page_number == max_pages:
                 st.success(f"Downloaded all {max_pages} pages of {paper_code}.")
                 break
+
+            page_number += 1
 
 
 
@@ -258,12 +260,6 @@ def main():
 
 
     # 💬 Display chat history
-    for question, answer in st.session_state.chat_history:
-        render_message(question, sender="user")
-        render_message(answer, sender="bot")
-
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
 
     if "selected_option" not in st.session_state:
         st.session_state.selected_option = ""
@@ -283,8 +279,8 @@ def main():
     if "submitted" not in st.session_state:
         st.session_state.submitted = False
     
-    #if "temp_option" not in st.session_state:
-    #    st.session_state.temp_option = ""
+    if "temp_option" not in st.session_state:
+        st.session_state.temp_option = ""
 
     if "send_triggered" not in st.session_state:
         st.session_state.send_triggered = False
@@ -322,32 +318,47 @@ def main():
     # Input section
     col1, col2 = st.columns([6, 1])
     with col1:
-        st.session_state.temp_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()), key="selectbox")
-        st.session_state.temp_input = st.text_input("💬 Or type your message", key="text_input")
+        temp_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()), key="selectbox")
 
     with col2:
         send = st.button("Send")
 
-    # Processing logic
-    if send:
-        if st.session_state.temp_input.strip():
-            query = st.session_state.temp_input.strip()
-        elif st.session_state.temp_option:
-            query = options[st.session_state.temp_option]
-        else:
-            query = None
+    temp_input = st.chat_input("💬 Or type your message")
 
-        if query:
-            # Replace with actual model and translation logic
+    # Processing logic
+    query = None
+    
+    if temp_input:
+            query = temp_input.strip()
+    elif send:
+        if temp_option:
+            query = options[temp_option]
+
+       
+            
+
+    if query:
+        if st.session_state.qa_chain:
             response = st.session_state.qa_chain.run(query)
             translated_response = translate_text(response, language)
-
             st.session_state.chat_history.append((query, translated_response))
+        else:
+            st.error("❌ Error: QA chain is not initialized. Please load and process PDFs first.")
 
-            # "Reset" inputs (can’t clear selectbox/text_input forcibly, but this will visually reset on rerender)
-            st.session_state.temp_input = ""
-            st.session_state.temp_option = ""
-            st.rerun()
+    #for question, answer in st.session_state.chat_history:
+    #    render_message(question, sender="user")
+    #    render_message(answer, sender="bot")
+
+    for user_msg, bot_msg in st.session_state.chat_history:
+        with st.chat_message("user"):
+            st.markdown(user_msg)
+        with st.chat_message("assistant"):
+            st.markdown(bot_msg)
+
+            # # "Reset" inputs (can’t clear selectbox/text_input forcibly, but this will visually reset on rerender)
+            # st.session_state.temp_input = ""
+            # st.session_state.temp_option = ""
+            # st.rerun()
         # # Quick prompt buttons shown above chat_input
     # with st.chat_message("user"):
     #     selected_option = st.selectbox(
