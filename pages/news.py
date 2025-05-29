@@ -17,7 +17,7 @@ import PyPDF2
 from textblob import TextBlob
 import numpy as np
 #import re
-from transformers import pipeline
+#from transformers import pipeline
 from components import show_navbar,show_footer
 from pathlib import Path
 from gtts import gTTS
@@ -169,28 +169,28 @@ def main():
     #sentiment_pipeline = pipeline("sentiment-analysis", model="cardiffnlp/twitter-roberta-base-sentiment")
 
     # Political Bias Keywords (Extendable)
-    left_bias_words = [
-        "social justice", "climate change", "income inequality", "progressive",
-        "universal healthcare", "gun control", "racial equity", "minimum wage","Congress",
-        "Aam Aadmi Party", "AAP", "Indian National Congress",
-    ]
+    # left_bias_words = [
+    #     "social justice", "climate change", "income inequality", "progressive",
+    #     "universal healthcare", "gun control", "racial equity", "minimum wage","Congress",
+    #     "Aam Aadmi Party", "AAP", "Indian National Congress",
+    # ]
 
-    right_bias_words = [
-        "tax cuts", "border security", "traditional values", "free market",
-        "law and order", "second amendment", "private enterprise", "fiscal responsibility","BJP","Bharatiya Janata Party",
-    ]
+    # right_bias_words = [
+    #     "tax cuts", "border security", "traditional values", "free market",
+    #     "law and order", "second amendment", "private enterprise", "fiscal responsibility","BJP","Bharatiya Janata Party",
+    # ]
 
-    classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+    # classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
-    # Define Bias Labels
-    bias_labels = ["Left-Leaning", "Right-Leaning", "Neutral"]
+    # # Define Bias Labels
+    # bias_labels = ["Left-Leaning", "Right-Leaning", "Neutral"]
 
-    def detect_bias(text):
-        """Detect bias using Zero-Shot Classification"""
-        result = classifier(text, bias_labels)
-        scores = {label: score for label, score in zip(result['labels'], result['scores'])}
-        detected_label = result['labels'][0]  # Label with highest score
-        return detected_label, scores
+    # def detect_bias(text):
+    #     """Detect bias using Zero-Shot Classification"""
+    #     result = classifier(text, bias_labels)
+    #     scores = {label: score for label, score in zip(result['labels'], result['scores'])}
+    #     detected_label = result['labels'][0]  # Label with highest score
+    #     return detected_label, scores
 
 
     # Usage in your Streamlit code
@@ -493,28 +493,28 @@ def main():
             st.warning("⚠️ No news updates found! Try fetching news first.")
         
 
-    if st.sidebar.button("📊 Analyze Bias"):
-            if st.session_state.qa_chain:
-                retrieved_docs = st.session_state.qa_chain.retriever.get_relevant_documents("politics")
+    # if st.sidebar.button("📊 Analyze Bias"):
+    #         if st.session_state.qa_chain:
+    #             retrieved_docs = st.session_state.qa_chain.retriever.get_relevant_documents("politics")
 
-                if retrieved_docs:
-                    for index, doc in enumerate(retrieved_docs, 1):
-                        article_text = doc.page_content
-                        st.subheader(f"📰 Bias Analysis of Document {index}")
+    #             if retrieved_docs:
+    #                 for index, doc in enumerate(retrieved_docs, 1):
+    #                     article_text = doc.page_content
+    #                     st.subheader(f"📰 Bias Analysis of Document {index}")
                     
-                        # Display a snippet of the document for context
-                        st.write(f"**Analyzing Text (Snippet):** {article_text[:500]}...")
+    #                     # Display a snippet of the document for context
+    #                     st.write(f"**Analyzing Text (Snippet):** {article_text[:500]}...")
                     
-                        # Analyze Bias
-                        detected_label, scores = detect_bias(article_text[:1024])  # Limit to 1024 tokens
-                        st.write({
-                            "Detected Bias": detected_label,
-                            "Scores": scores
-                        })
-                else:
-                    st.warning("⚠️ No relevant documents found for bias analysis.")
-            else:
-                st.warning("⚠️ QA Chain not initialized.")
+    #                     # Analyze Bias
+    #                     detected_label, scores = detect_bias(article_text[:1024])  # Limit to 1024 tokens
+    #                     st.write({
+    #                         "Detected Bias": detected_label,
+    #                         "Scores": scores
+    #                     })
+    #             else:
+    #                 st.warning("⚠️ No relevant documents found for bias analysis.")
+    #         else:
+    #             st.warning("⚠️ QA Chain not initialized.")
 
     import os
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"

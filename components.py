@@ -77,7 +77,7 @@ from streamlit_community_navigation_bar import st_navbar
 #     """, unsafe_allow_html=True)
 
 def show_navbar():
-    pages = ["Home","News","Chatbot","Pdf Upload","Login-Signup","GitHub"]
+    pages = ["Home","News","Chatbot","Pdf Upload","Login-Signup","GitHub","View NewsPaper"]
     url = {
         "GitHub":"https://github.com/bhaskarbidyanta/AI-Samachar-Newspaper-Bot"
     }

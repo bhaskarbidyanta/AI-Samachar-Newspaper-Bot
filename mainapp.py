@@ -5,6 +5,7 @@ import pages.news as news
 import pages.chatbot as chatbot
 import pages.pdf_upload as pdf_upload
 import pages.Login_Signup as login_signup
+import pages.view_pdfs as view_pdfs
 
 
 st.set_page_config(page_title="AI Samachar", layout="wide")
@@ -93,6 +94,8 @@ elif selected_page == "Pdf Upload":
     pdf_upload.main()
 elif selected_page == "Login-Signup":
     login_signup.main()
+elif selected_page == "View NewsPaper":
+    view_pdfs.main()
 else:
     st.error("Page not found.")
 
