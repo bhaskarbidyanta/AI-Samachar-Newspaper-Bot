@@ -284,7 +284,7 @@ def main():
 
     if "send_triggered" not in st.session_state:
         st.session_state.send_triggered = False
-        
+
     options = {
         "All News": "Get all the news headlines mentioned in these pdfs.",
         "📌 Summarize": "Summarize all the news in these PDFS .",
@@ -316,14 +316,16 @@ def main():
     # --- UI ---
     # Input area
     # Input section
-    col1, col2 = st.columns([6, 1])
-    with col1:
-        temp_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()), key="selectbox")
+    input_container = st.container()
+    with input_container:
+        col1, col2 = st.columns([6, 1])
+        with col1:
+            temp_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()), key="selectbox")
 
-    with col2:
-        send = st.button("Send")
+        with col2:
+            send = st.button("Send")
 
-    temp_input = st.chat_input("💬 Or type your message")
+        temp_input = st.chat_input("💬 Or type your message")
 
     # Processing logic
     query = None
@@ -349,11 +351,14 @@ def main():
     #    render_message(question, sender="user")
     #    render_message(answer, sender="bot")
 
-    for user_msg, bot_msg in st.session_state.chat_history:
-        with st.chat_message("user"):
-            st.markdown(user_msg)
-        with st.chat_message("assistant"):
-            st.markdown(bot_msg)
+    chat_history_container = st.container()
+
+    with chat_history_container:
+        for user_msg, bot_msg in st.session_state.chat_history:
+            with st.chat_message("user"):
+                st.markdown(user_msg)
+            with st.chat_message("assistant"):
+                st.markdown(bot_msg)
 
             # # "Reset" inputs (can’t clear selectbox/text_input forcibly, but this will visually reset on rerender)
             # st.session_state.temp_input = ""
