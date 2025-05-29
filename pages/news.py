@@ -316,16 +316,20 @@ def main():
     # --- UI ---
     # Input area
     # Input section
-    input_container = st.container()
-    with input_container:
+    with st.form(key="chat_input_form", clear_on_submit=True):
         col1, col2 = st.columns([6, 1])
         with col1:
-            temp_option = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()), key="selectbox")
+            temp_option = st.selectbox(
+                "📌 Quick Prompt",
+                [""] + list(options.keys()),
+                key="selectbox", # Use the session_state key directly
+                label_visibility="collapsed" # Hide the default label for cleaner look
+            )
 
         with col2:
-            send = st.button("Send")
+            send = st.form_submit_button("Send")
 
-        temp_input = st.chat_input("💬 Or type your message")
+    temp_input = st.chat_input("💬 Or type your message")
 
     # Processing logic
     query = None
