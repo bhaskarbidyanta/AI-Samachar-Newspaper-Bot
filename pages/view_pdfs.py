@@ -3,13 +3,22 @@ import datetime
 import os
 from streamlit_pdf_viewer import pdf_viewer as show_pdf
 import io
+#from pages.news import download_pdfs_from_site
+
 def main():
     import os
-    selected_date = st.date_input("Select a date", datetime.date.today())
+    # User inputs
+    selected_date = st.date_input("Select Date", datetime.date.today())
+    paper_type = st.selectbox("Select Paper Type", ["Main Paper", "NC Paper"])
+    page_number = st.number_input("Select Page Number", min_value=1, max_value=12, value=1, step=1)
+
+    # Format date and file path
     formatted_date = selected_date.strftime("%Y-%m-%d")
 
-    
-    pdf_file = f"news/{formatted_date}/downloaded_pdfs_nc/NCpage_3.pdf"
+    if paper_type == "Main Paper":
+        pdf_file = f"news/{formatted_date}/downloaded_pdfs/Mpage_{page_number}.pdf"
+    else:
+        pdf_file = f"news/{formatted_date}/downloaded_pdfs_nc/NCpage_{page_number}.pdf"
 
     if os.path.exists(pdf_file):
         with open(pdf_file, "rb") as f:

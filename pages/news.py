@@ -51,7 +51,8 @@ def main():
     # Model Selection
     EMBEDDING_MODEL = "models/embedding-001"
     model_options = ["gemini-1.5-pro", "gemini-1.5-flash"]
-    selected_model = st.sidebar.selectbox("🔍 Select Model:", model_options, index=0)
+    #selected_model = st.sidebar.selectbox("🔍 Select Model:", model_options, index=0)
+    selected_model = "gemini-1.5-pro"  # Default model
 
     st.title("Newspaper PDF Chatbot")
 
