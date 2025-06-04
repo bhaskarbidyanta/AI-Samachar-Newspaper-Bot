@@ -60,6 +60,35 @@ def main():
 
     selected_date = st.date_input("Select Date",datetime.datetime.now())
 
+    TOPIC_KEYWORDS = {
+        "Sports": ["cricket", "football", "match", "tournament", "goal", "medal", "olympics"],
+        "International": ["un", "russia", "china", "us", "global", "international"],
+        "National": ["india", "pm modi", "lok sabha", "national"],
+        "City": ["nagpur", "bhopal", "local", "municipal", "district","NMC"],
+        "Jobs": ["recruitment", "vacancy", "hiring", "walk-in", "job", "career"],
+        "Crime": ["arrested", "murder", "police", "theft", "robbery", "fir"],
+        "Weather": ["rain", "forecast", "temperature", "imd", "weather"],
+        "Business": ["stock", "market", "share", "business", "sensex", "economy", "rbi"],
+        "Politics": ["election", "bjp", "congress", "mp", "mla", "cabinet"],
+        "Editorial": ["editorial", "opinion", "column", "author"],
+        "War": ["war", "conflict", "border", "attack", "terror"],
+        "Health": ["health", "hospital", "covid", "doctor", "disease", "vaccine"],
+        "Education": ["exam", "results", "admission", "cbse", "school", "university"],
+        "Entertainment": ["film", "movie", "actor", "actress", "box office", "bollywood"]
+    }
+
+    if "pdf_loaded" not in st.session_state:
+        st.session_state.pdf_loaded = False
+
+
+    def categorize_text(text):
+        text = text.lower()
+        categories = []
+        for topic, keywords in TOPIC_KEYWORDS.items():
+            if any(k in text for k in keywords):
+                categories.append(topic)
+        return categories
+
     def download_pdfs_from_site(base_url, paper_code, selected_date):
         # Get the current date to create folders
         formatted_date = selected_date.strftime("%Y-%m-%d")
@@ -112,60 +141,48 @@ def main():
 
 
 
-    def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selected_model):
-        """This method will load PDFs from the specified directory, extract text, and process them."""
-        all_texts = []
-        
-        # Loop through each PDF file in the downloaded directory
-        for pdf_file in os.listdir(download_dir):
-            if pdf_file.endswith(".pdf"):
-                pdf_path = os.path.join(download_dir, pdf_file)
-                
-                # Read the PDF and extract its content
-                with open(pdf_path, 'rb') as file:
-                    reader = PyPDF2.PdfReader(file)
-                    extracted_text = []
-                    
-                    for page in reader.pages:
-                        page_text = page.extract_text()
-                        if page_text:
-                            extracted_text.append(page_text)
-                    
-                    text = "\n".join(extracted_text)
-                    
-                    if text.strip():  # Only add if the PDF has content
-                        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-                        chunks = text_splitter.split_text(text)
-                        all_texts.extend(chunks)
-                    else:
-                        st.warning(f"Warning: No text extracted from {pdf_file}. Skipping.")
-        
-        if not all_texts:
-            st.error("❌ Error: No valid content found in the downloaded PDFs.")
-            return None
-        
-        # Store the text chunks in FAISS
-        embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model, google_api_key=google_api_key)
-        vectorstore = FAISS.from_texts(all_texts, embeddings)
-        
-        # Set up the conversational retrieval chain
-        memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-        qa_chain = ConversationalRetrievalChain.from_llm(
-            llm=ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key),
-            retriever=vectorstore.as_retriever(),
-            memory=memory
-        )
+    def process_pdf_by_page(
+        pdf_path,
+        page_num,
+        google_api_key,
+        embedding_model,
+        selected_model
+    ):
+        with open(pdf_path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            page = reader.pages[page_num]
+            text = page.extract_text()
 
-        st.session_state.qa_chain = qa_chain  # Store in session
-        st.success("✅ PDFs processed successfully! You can now ask questions.")
+            lines = text.split("\n")
+            headlines = [line.strip() for line in lines if len(line.strip()) < 100 and (line.strip().isupper() or line.strip().istitle())]
+            article_lines = [line.strip() for line in lines if line.strip() not in headlines]
 
+            # Combine article and split
+            splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
+            chunks = headlines + splitter.split_text("\n".join(article_lines))
+
+            # Tag chunks with category
+            tagged_chunks = []
+            for chunk in chunks:
+                categories = categorize_text(chunk)
+                if categories:
+                    chunk = f"[{' | '.join(categories)}]\n{chunk}"  # Attach tags visibly
+                tagged_chunks.append(chunk)
+
+            # Store in vectorstore
+            embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model, google_api_key=google_api_key)
+            vectorstore = FAISS.from_texts(tagged_chunks, embeddings)
+
+            memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+            qa_chain = ConversationalRetrievalChain.from_llm(
+                llm=ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key),
+                retriever=vectorstore.as_retriever(),
+                memory=memory
+            )
+            
+            return qa_chain
+        st.success(f"✅ Processed page {page_num + 1} of {pdf_path}")
         
-        # Initialize session state
-        if "chat_history" not in st.session_state:
-            st.session_state.chat_history = []
-        st.session_state.qa_chain = qa_chain  # Store the QA chain in session
-
-        return qa_chain
 
     #sentiment_pipeline = pipeline("sentiment-analysis", model="cardiffnlp/twitter-roberta-base-sentiment")
 
@@ -205,19 +222,25 @@ def main():
             st.error(f"An error occurred: {e}")
 
         formatted_date = selected_date.strftime("%Y-%m-%d")
+        download_dir = os.path.join("news", formatted_date, "downloaded_pdfs" if paper_code == "Mpage" else "downloaded_pdfs_nc")
+        num_pages = 12 if paper_code == "Mpage" else 8
+
+        st.session_state.qa_chains = {}
+
+        for i in range(1, num_pages + 1):
+            pdf_path = os.path.join(download_dir, f"{paper_code}_{i}.pdf")
+            if os.path.exists(pdf_path):
+                qa_chain = process_pdf_by_page(
+                    pdf_path=pdf_path,
+                    page_num=0,
+                    google_api_key=google_api_key,
+                    embedding_model=EMBEDDING_MODEL,
+                    selected_model=selected_model
+                )
+                if qa_chain:
+                    st.session_state.qa_chains[i] = qa_chain
         
-        if paper_type == "Main Paper":
-            download_dir = os.path.join("news", formatted_date, "downloaded_pdfs")
-        else:
-            download_dir = os.path.join("news", formatted_date, "downloaded_pdfs_nc")
-        
-        if os.path.exists(download_dir) and os.listdir(download_dir):
-            qa_chain = load_and_process_pdfs(download_dir, google_api_key, EMBEDDING_MODEL, selected_model)
-            
-            if qa_chain:
-                st.session_state.qa_chain = qa_chain
-        else:
-            st.error(f"❌ No PDFs found in {download_dir}. Please download PDFs first.")
+        st.session_state.pdf_loaded = True
 
     from googletrans import Translator
 
@@ -287,74 +310,95 @@ def main():
         st.session_state.send_triggered = False
 
     options = {
-        "All News": "Get all the news headlines mentioned in these pdfs.",
-        "📌 Summarize": "Summarize all the news in these PDFS .",
-        "⚽ Sports News": "Give me the sports news in these pdf.",
-        "🌍 International News": "Provide me with the mentioned international news in these pdf.",
-        "🇮🇳 National News": "Show me the latest national news in India mentioned in these pdfs.",
-        "🏙️ City News": "What are the latest updates in my city mentioned in these pdfs?",
-        "💼 Jobs": "List all job openings mentioned in these pdfs.",
-        "🚔 Crime News": "Provide recent crime news updates provided in these pdfs.",
-        "🏞️ Weather News":"Today's weather updates in these newspaper pdfs.",
-        "💰 Business News": "Show me the latest business news in these pdfs.",
-        "📰 Politics": "What are the latest political news updates in these pdfs?",
-        "🗞️ Editorial": "Provide me with the editorial news in these pdfs.",
-        "🗳️ Election News": "Show me the latest election news in these pdfs.",
-        "War News": "Summarize with the latest war news in these pdfs.",
-        "First Page": "Summarize the first page of these pdfs.",
-        "Second Page": "Summarize the second page of these pdfs.",
-        "Third Page": "Summarize the third page of these pdfs.",
-        "Fourth Page": "Summarize the fourth page of these pdfs.",
-        "Fifth Page": "Summarize the fifth page of these pdfs.",
-        "Sixth Page": "Summarize the sixth page of these pdfs.",
-        "Seventh Page": "Summarize the seventh page of these pdfs.",
-        "Eighth Page": "Summarize the eighth page of these pdfs.",
-        "Ninth Page": "Summarize the ninth page of these pdfs.",
-        "Tenth Page": "Summarize the tenth page of these pdfs.",
-        "Eleventh Page": "Summarize the eleventh page of these pdfs.",
-        "Twelfth Page": "Summarize the twelfth page of these pdfs.",
+        "🗞️ All News Headlines": "List all the news headlines from these PDFs, separated by category if possible.",
+        "🧠 Full Summary": "List all news stories covered across all pages of the PDFs.",
+        
+        "⚽ Sports News": "Extract and list all sports-related news from these PDFs.",
+        "🌍 International News": "Summarize international news events mentioned in these PDFs.",
+        "🇮🇳 National News": "List and summarize national-level news relevant to India from these PDFs.",
+        "🏙️ City/Local News": "Show all local or city-specific news stories found in these PDFs.",
+        
+        "💼 Job Listings": "List all job-related information and employment opportunities found in the newspaper PDFs.",
+        "🚔 Crime Reports": "List all recent crime-related news articles mentioned in the PDFs.",
+        "🏞️ Weather Updates": "Extract all weather-related news, forecasts, and alerts from these PDFs.",
+        
+        "💰 Business News": "List and provide all business and financial news covered in the newspaper PDFs.",
+        "📰 Political News": "List the major political updates, parties, and leaders mentioned in these PDFs.",
+        "🗳️ Election Coverage": "List all the latest election updates, results, or campaign stories mentioned in the PDFs.",
+        
+        "🧾 Editorial Section": "Summarize the editorial articles and opinion pieces found in these PDFs.",
+        "⚔️ War or Conflict News": "Extract and list any war-related or conflict-specific news mentioned in the PDFs.",
+        
+        "🏥 Health News": "List all health-related updates or medical news in these PDFs.",
+        "🎓 Education": "List all news or announcements related to education, schools, or exams in the PDFs.",
+        "🎭 Entertainment": "List all the entertainment or celebrity-related news from the newspaper.",
     }
+
     # --- UI ---
     # Input area
     # Input section
-    with st.container():
+    # with st.container():
         
-        with st.sidebar.form(key="chat_input_form", clear_on_submit=True):
-            col1, col2 = st.columns([6, 1])
-            with col1:
-                temp_option = st.selectbox(
-                    "📌 Quick Prompt",
-                    [""] + list(options.keys()),
-                    key="selectbox", # Use the session_state key directly
-                    #label_visibility="collapsed" # Hide the default label for cleaner look
-                )
+    #     with st.sidebar.form(key="chat_input_form", clear_on_submit=True):
+    #         col1, col2 = st.columns([6, 1])
+    #         with col1:
+    #             temp_option = st.selectbox(
+    #                 "📌 Quick Prompt",
+    #                 [""] + list(options.keys()),
+    #                 key="selectbox", # Use the session_state key directly
+    #                 #label_visibility="collapsed" # Hide the default label for cleaner look
+    #             )
 
-            with col2:
-                send = st.form_submit_button("Send")
+    #         with col2:
+    #             send = st.form_submit_button("Send")
 
-        st.markdown("</div>", unsafe_allow_html=True)  # Close the fixed input div
+    #     st.markdown("</div>", unsafe_allow_html=True)  # Close the fixed input div
 
-    temp_input = st.chat_input("💬 Or type your message")
+    # temp_input = st.chat_input("💬 Or type your message")
 
-    # Processing logic
-    query = None
+    # # Processing logic
+    # query = None
     
-    if temp_input:
-            query = temp_input.strip()
-    elif send:
-        if temp_option:
-            query = options[temp_option]
+    # if temp_input:
+    #         query = temp_input.strip()
+    # elif send:
+    #     if temp_option:
+    #         query = options[temp_option]
+
+
+    if "qa_chains" in st.session_state and st.session_state.qa_chains:
+        selected_page = st.sidebar.selectbox("Select Page to Ask Questions From:", list(st.session_state.qa_chains.keys()))
+    # Optional selectbox prompts
+        options = {
+            "🧠 Full Summary": "Summarize the most important news articles from this page.",
+            "🗞️ All Headlines": "List all headlines from this page in bullet points.",
+            "🔎 Important Headlines Only": "List only the most important headlines from this page, excluding minor updates.",
+            "⚽ Sports": "What sports-related news is present on this page?",
+            "📰 Politics": "Summarize political news covered on this page.",
+            "💼 Jobs": "List all job postings or recruitment updates on this page in 25 lines",
+            "🎓 Education": "List all the education-related updates on this page in 20 lines",
+            "🏥 Health": "Extract and list all health-related news on this page in 20 lines.",
+            "📉 Business": "Summarize business or economic updates present on this page.",
+            "🚨 Crime": "List crime-related events mentioned on this page.",
+            "🌦️ Weather": "Summarize any weather forecasts or warnings from this page."
+        }
+        selected_prompt = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()))
+
+        question = st.chat_input("💬 Ask something about this page") or options.get(selected_prompt)
 
        
             
 
-    if query:
-        if st.session_state.qa_chain:
-            response = st.session_state.qa_chain.run(query)
+        if question:
+            qa = st.session_state.qa_chains[selected_page]
+            response = qa.run(question)
             translated_response = translate_text(response, language)
-            st.session_state.chat_history.append((query, translated_response))
+            st.session_state.chat_history.append((question, translated_response))
+    else:
+        if st.session_state.get("pdf_loaded") == True:
+            st.warning("⚠️ PDFs were loaded but no QA chains were created. Check file content.")
         else:
-            st.error("❌ Error: QA chain is not initialized. Please load and process PDFs first.")
+            st.info("📄Click the button above to load and process the PDFs first.")
 
     #for question, answer in st.session_state.chat_history:
     #    render_message(question, sender="user")
