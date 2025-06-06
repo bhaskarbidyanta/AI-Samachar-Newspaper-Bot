@@ -62,12 +62,12 @@ def main():
 
     TOPIC_KEYWORDS = {
         "Sports": ["cricket", "football", "match", "tournament", "goal", "medal", "olympics"],
-        "International": ["un", "russia", "china", "us", "global", "international"],
-        "National": ["india", "pm modi", "lok sabha", "national"],
+        "International": ["un", "russia", "china", "us", "global", "international","europe","uk"],
+        "National": ["india", "pm modi", "lok sabha", "national","rajya sabha"],
         "City": ["nagpur", "bhopal", "local", "municipal", "district","NMC"],
         "Jobs": ["recruitment", "vacancy", "hiring", "walk-in", "job", "career"],
-        "Crime": ["arrested", "murder", "police", "theft", "robbery", "fir"],
-        "Weather": ["rain", "forecast", "temperature", "imd", "weather"],
+        "Crime": ["arrested", "murder", "police", "theft", "robbery", "fir","supreme","court"],
+        "Weather": ["rain", "forecast", "temperature", "imd", "weather","rainfall","monsoon","aqi","sunrise","sunset"],
         "Business": ["stock", "market", "share", "business", "sensex", "economy", "rbi"],
         "Politics": ["election", "bjp", "congress", "mp", "mla", "cabinet"],
         "Editorial": ["editorial", "opinion", "column", "author"],
@@ -179,6 +179,20 @@ def main():
                 retriever=vectorstore.as_retriever(),
                 memory=memory
             )
+
+            if "categorized_chunks" not in st.session_state:
+                st.session_state.categorized_chunks = {}
+
+            category_map = {}
+            for chunk in tagged_chunks:
+                label_start = chunk.find("[")
+                label_end = chunk.find("]")
+                if label_start != -1 and label_end != -1:
+                    labels = chunk[label_start + 1:label_end].split(" | ")
+                    content = chunk[label_end + 1:].strip()
+                    for label in labels:
+                        category_map.setdefault(label.strip(), []).append(content)
+            st.session_state.categorized_chunks[os.path.basename(pdf_path)] = category_map
             
             return qa_chain
         st.success(f"✅ Processed page {page_num + 1} of {pdf_path}")
@@ -370,19 +384,21 @@ def main():
         selected_page = st.sidebar.selectbox("Select Page to Ask Questions From:", list(st.session_state.qa_chains.keys()))
     # Optional selectbox prompts
         options = {
-            "🧠 Full Summary": "Summarize the most important news articles from this page.",
-            "🗞️ All Headlines": "List all headlines from this page in bullet points.",
-            "🔎 Important Headlines Only": "List only the most important headlines from this page, excluding minor updates.",
-            "⚽ Sports": "What sports-related news is present on this page?",
-            "📰 Politics": "Summarize political news covered on this page.",
-            "💼 Jobs": "List all job postings or recruitment updates on this page in 25 lines",
-            "🎓 Education": "List all the education-related updates on this page in 20 lines",
-            "🏥 Health": "Extract and list all health-related news on this page in 20 lines.",
-            "📉 Business": "Summarize business or economic updates present on this page.",
-            "🚨 Crime": "List crime-related events mentioned on this page.",
-            "🌦️ Weather": "Summarize any weather forecasts or warnings from this page."
+            "📋 Everything Important": "Extract and list all major articles, headlines, and key updates from this page. Include political, business, sports, health, job, and city news. Ensure no important content is skipped. Return the results as a clean, well-structured bullet list.",
+            "🧠 Full Summary": "List all major news articles from this page clearly and concisely in bullet points, limiting to the top 20 items.",
+            "🗞️ All Headlines": "List all from this page, preserving formatting and spacing. Aim for 15 to 25 entries.",
+            "🔎 Important Headlines Only": "List all the major, category-worthy headlines from this page. Prioritize political, national, international, and sports news. Limit to 20 key points.",
+            "⚽ Sports": "Listall all sports news from this page including teams, matches, scores, and events. Use up to 20 lines.",
+            "🌍 International": "List all international stories, global leaders, countries, and incidents reported on this page in up to 25 detailed bullet points.",
+            "📰 Politics": "List all political headlines and key political developments from this page. Include leaders, decisions, or rallies. Use up to 20 concise bullet points.",
+            "💼 Jobs": "List all job openings, recruitment drives, walk-in interviews or job-related news mentioned. Aim for 25 specific job items if available.",
+            "🎓 Education": "List all updates related to exams, results, school/university news, and government schemes for students. Include 20 informative lines.",
+            "🏥 Health": "List all all health-related news including diseases, vaccination drives, hospital reports, or health tips. Use up to 20 clear points.",
+            "📉 Business": "List all market updates, company announcements, and economic news in up to 25 crisp points with sector or stock details.",
+            "🚨 Crime": "List all detailed crime reports including FIRs, police actions, thefts, or judicial developments. Summarize in 25 lines.",
+            "🌦️ Weather": "List all weather forecasts, rainfall alerts, temperature readings in Nagpur and in Vidarbha region in 20 to 25 well-structured lines."
         }
-        selected_prompt = st.selectbox("📌 Quick Prompt", [""] + list(options.keys()))
+        selected_prompt = st.sidebar.selectbox("📌 Quick Prompt", [""] + list(options.keys()))
 
         question = st.chat_input("💬 Ask something about this page") or options.get(selected_prompt)
 
@@ -408,10 +424,12 @@ def main():
 
     with chat_history_container:
         for user_msg, bot_msg in st.session_state.chat_history:
-            with st.chat_message("user"):
-                st.markdown(user_msg)
-            with st.chat_message("assistant"):
-                st.markdown(bot_msg)
+            render_message(user_msg, sender="user")
+            render_message(bot_msg, sender="bot")
+            # with st.chat_message("user"):
+            #     st.markdown(user_msg)
+            # with st.chat_message("assistant"):
+            #     st.markdown(bot_msg)
 
             # # "Reset" inputs (can’t clear selectbox/text_input forcibly, but this will visually reset on rerender)
             # st.session_state.temp_input = ""
@@ -474,7 +492,7 @@ def main():
     #     st.session_state.chat_history.append((user_input, translated_response))
     
     # Add a button to clear chat history
-    if st.button("🔊 Get Audio of Last Bot Response"):
+    if st.sidebar.button("🔊 Get Audio of Last Bot Response"):
         if st.session_state.chat_history:
             last_response = st.session_state.chat_history[-1][1]  # just the bot reply
 
@@ -560,31 +578,11 @@ def main():
     #                 st.warning("⚠️ No relevant documents found for bias analysis.")
     #         else:
     #             st.warning("⚠️ QA Chain not initialized.")
-
-    import os
-    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
-    def show_online_pdf(pdf_url):
-        st.sidebar.subheader("📄 Click below to view the PDF:")
-        st.sidebar.markdown(f'[📄 View PDF]({pdf_url})', unsafe_allow_html=True)
-
-
-    year = selected_date.year
-    month = str(selected_date.month).zfill(2)
-    day = str(selected_date.day).zfill(2)
-    base_url = "https://www.ehitavada.com/encyc/6"
-    paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
-
-    # Construct full PDF URL
-    page_number = st.sidebar.number_input("📄 Page Number", min_value=1, max_value=12, step=1)
-    pdf_url = f"{base_url}/{year}/{month}/{day}/{paper_code}_{page_number}.pdf"
-
-    st.write(f"📄 Viewing: {pdf_url}")
-    show_online_pdf(pdf_url)
-
-    if st.button("Logout"):
-        st.session_state.clear()
-        st.switch_page("mainapp.py")
+    
+    
+    # if st.sidebar.button("Logout"):
+    #     st.session_state.clear()
+    #     st.switch_page("mainapp.py")
 
     #show_footer()
 
