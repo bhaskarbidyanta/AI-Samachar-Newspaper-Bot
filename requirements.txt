@@ -34,3 +34,4 @@ gtts
 #tempfile
 langdetect
 streamlit_pdf_viewer
+streamlit_option_menu
