@@ -8,6 +8,7 @@ from langchain.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 from textblob import TextBlob
 import emoji
@@ -85,10 +86,10 @@ TOPIC_KEYWORDS = {
     "National": ["india", "pm modi", "lok sabha", "national","rajya sabha"],
     "City": ["nagpur", "bhopal", "local", "municipal", "district","NMC"],
     "Jobs": ["recruitment", "vacancy", "hiring", "walk-in", "job", "career"],
-    "Crime": ["arrested", "murder", "police", "theft", "robbery", "fir","supreme","court"],
+    "Crime": ["arrested", "murder", "police", "theft", "robbery", "fir","supreme","court","police","crime","accident"],
     "Weather": ["rain", "forecast", "temperature", "imd", "weather","rainfall","monsoon","aqi","sunrise","sunset"],
     "Business": ["stock", "market", "share", "business", "sensex", "economy", "rbi"],
-    "Politics": ["election", "bjp", "congress", "mp", "mla", "cabinet"],
+    "Politics": ["government","election", "bjp", "congress", "mp", "mla", "cabinet"],
     "Editorial": ["editorial", "opinion", "column", "author"],
     "War": ["war", "conflict", "border", "attack", "terror"],
     "Health": ["health", "hospital", "covid", "doctor", "disease", "vaccine"],
@@ -212,6 +213,36 @@ def process_pdf_by_page(
                 for label in labels:
                     category_map.setdefault(label.strip(), []).append(content)
         st.session_state.categorized_chunks[os.path.basename(pdf_path)] = category_map
+
+        # Summarize chunks
+        summarizer = ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key)
+        summary_prompt = PromptTemplate.from_template("""
+        Summarize the following news chunk in one bullet point:
+        "{chunk}"
+        """)
+
+        grouped_summaries = []
+        for chunk in tagged_chunks:
+            if len(chunk) > 100:
+                try:
+                    summary = summarizer.predict(summary_prompt.format(chunk=chunk)).strip()
+                    categories = categorize_text(chunk)
+                    for category in categories:
+                        grouped_summaries.setdefault(category,[]).append(f"- {summary}")
+                    #summaries.append(f"- {summary.strip()}")
+                except:
+                    pass
+
+        pdf_filename = os.path.basename(pdf_path)
+        if "summaries_grouped" not in st.session_state:
+            st.session_state.summaries_grouped = {}
+        st.session_state.summaries_grouped[pdf_filename] = grouped_summaries
+
+        # Show news summaries
+        #if summaries:
+        #    st.markdown("### 📰 Important News Highlights")
+        #    for s in summaries:
+        #        st.markdown(s)
         
         return qa_chain
     st.success(f"✅ Processed page {page_num + 1} of {pdf_path}")
@@ -421,14 +452,39 @@ if "qa_chains" in st.session_state and st.session_state.qa_chains:
 
     question = st.chat_input("💬 Ask something about this page") or options.get(selected_prompt)
 
-    
+    paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
         
 
     if question:
-        qa = st.session_state.qa_chains[selected_page]
-        response = qa.run(question)
-        translated_response = translate_text(response, language)
-        st.session_state.chat_history.append((question, translated_response))
+        # Optional: Use raw summaries instead of retrieval-based QA for summary-type prompts
+        summary_triggers = ["summary", "summarize", "everything important", "all headlines", "important news", "key updates"]
+        is_summary_request = any(trigger in question.lower() for trigger in summary_triggers)
+        
+        pdf_filename = f"{paper_code}_{selected_page}.pdf"  # or however you name it
+        summaries_by_cat = st.session_state.get("summaries_grouped", {}).get(pdf_filename)
+
+        if is_summary_request and summaries_by_cat:
+            summary_text = ""
+            
+            # Filter by category if prompt matches
+            for category, bullet_points in summaries_by_cat.items():
+                if category.lower() in question.lower() or question.lower() in category.lower() or "everything" in question.lower() or "summary" in question.lower():
+                    summary_text += f"## {category}\n" + "\n".join(bullet_points) + "\n\n"
+
+            # If nothing matched specifically, show all
+            if not summary_text.strip():
+                for category, bullet_points in summaries_by_cat.items():
+                    summary_text += f"## {category}\n" + "\n".join(bullet_points) + "\n\n"
+
+            translated_response = translate_text(summary_text.strip(), language)
+            st.session_state.chat_history.append((question, translated_response))
+
+            
+        else:
+            qa = st.session_state.qa_chains[selected_page]
+            response = qa.run(question)
+            translated_response = translate_text(response, language)
+            st.session_state.chat_history.append((question, translated_response))
 else:
     if st.session_state.get("pdf_loaded") == True:
         st.warning("⚠️ PDFs were loaded but no QA chains were created. Check file content.")
