@@ -23,3 +23,4 @@ db = client["pdf_chatbot"]
 # Collections
 users_collection = db["users"]
 pdfs_collection = db["pdfs"]
+summary_collection = db["summaries"]

@@ -27,6 +27,7 @@ import io
 from langdetect import detect
 from streamlit_option_menu import option_menu
 import os
+from db import summary_collection
 #show_navbar()
 
 # Load API key
@@ -80,34 +81,10 @@ selected_date = st.date_input("Select Date",datetime.datetime.now())
 # elif selected == "🤖 Select Language":
 #     language = st.selectbox("🌐 Select Language:", ["English", "Hindi", "Marathi"], index=0)
 
-TOPIC_KEYWORDS = {
-    "Sports": ["cricket", "football", "match", "tournament", "goal", "medal", "olympics"],
-    "International": ["un", "russia", "china", "us", "global", "international","europe","uk"],
-    "National": ["india", "pm modi", "lok sabha", "national","rajya sabha"],
-    "City": ["nagpur", "bhopal", "local", "municipal", "district","NMC"],
-    "Jobs": ["recruitment", "vacancy", "hiring", "walk-in", "job", "career"],
-    "Crime": ["arrested", "murder", "police", "theft", "robbery", "fir","supreme","court","police","crime","accident"],
-    "Weather": ["rain", "forecast", "temperature", "imd", "weather","rainfall","monsoon","aqi","sunrise","sunset"],
-    "Business": ["stock", "market", "share", "business", "sensex", "economy", "rbi"],
-    "Politics": ["government","election", "bjp", "congress", "mp", "mla", "cabinet"],
-    "Editorial": ["editorial", "opinion", "column", "author"],
-    "War": ["war", "conflict", "border", "attack", "terror"],
-    "Health": ["health", "hospital", "covid", "doctor", "disease", "vaccine"],
-    "Education": ["exam", "results", "admission", "cbse", "school", "university"],
-    "Entertainment": ["film", "movie", "actor", "actress", "box office", "bollywood"]
-}
 
 if "pdf_loaded" not in st.session_state:
     st.session_state.pdf_loaded = False
 
-
-def categorize_text(text):
-    text = text.lower()
-    categories = []
-    for topic, keywords in TOPIC_KEYWORDS.items():
-        if any(k in text for k in keywords):
-            categories.append(topic)
-    return categories
 
 def download_pdfs_from_site(base_url, paper_code, selected_date):
     # Get the current date to create folders
@@ -125,127 +102,125 @@ def download_pdfs_from_site(base_url, paper_code, selected_date):
     page_number = 1  # Start from page 1
     
     # Set page limits
-    if paper_code == "Mpage":
-        max_pages = 12
-    else:
-        max_pages = 8
+    max_pages = 12 if paper_code == "Mpage" else 8
 
-    while page_number <= max_pages:
-        # Construct the URL for the current page
+    for page_number in range(1, max_pages + 1):
         url = f"{base_url}/{year}/{month}/{day}/{paper_code}_{page_number}.pdf"
         response = requests.get(url)
-        
-        # If the URL returns a 404 error, stop downloading
+
         if response.status_code == 404:
-            st.warning(f"Stopped downloading. {url} returned a 404 error.")
-            break
-        
-        # Save the PDF to the appropriate directory
-        if paper_code == "Mpage":
-            pdf_filename_main = os.path.join(download_dir_main, f"{paper_code}_{page_number}.pdf")
-            with open(pdf_filename_main, 'wb') as file:
-                file.write(response.content)
-            #st.success(f"Downloaded: {pdf_filename_main}")
-        else:
-            pdf_filename_nc = os.path.join(download_dir_nc, f"{paper_code}_{page_number}.pdf")
-            with open(pdf_filename_nc, 'wb') as file:
-                file.write(response.content)
-            #st.success(f"Downloaded: {pdf_filename_nc}")
-        
-            # Move to the next page
-        if page_number == max_pages:
-            st.success(f"Downloaded all {max_pages} pages of {paper_code}.")
+            st.warning(f"⛔ {url} returned a 404. Stopped downloading at page {page_number}.")
             break
 
-        page_number += 1
+        download_dir = download_dir_main if paper_code == "Mpage" else download_dir_nc
+        pdf_filename = os.path.join(download_dir, f"{paper_code}_{page_number}.pdf")
+
+        with open(pdf_filename, 'wb') as file:
+            file.write(response.content)
+
+        st.success(f"✅ Downloaded: {paper_code}_{page_number}.pdf")
+
+    st.success(f"✅ Completed download of {paper_code} up to page {page_number}")
 
 
 
-def process_pdf_by_page(
-    pdf_path,
-    page_num,
-    google_api_key,
-    embedding_model,
-    selected_model
-):
+CATEGORIES = [
+    "Politics", "Business", "Crime", "Sports", "Weather", "Jobs", "Health", "Education", "International"
+]
+
+def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, selected_model):
+    pdf_filename = os.path.basename(pdf_path)
+
+    if "summaries_grouped" not in st.session_state:
+        st.session_state.summaries_grouped = {}
+    if "categorized_chunks" not in st.session_state:
+        st.session_state.categorized_chunks = {}
+
+    existing = summary_collection.find_one({"pdf": pdf_filename})
+    if existing:
+        st.session_state.summaries_grouped[pdf_filename] = existing["summaries_grouped"]
+        st.session_state.categorized_chunks[pdf_filename] = existing.get("categorized_chunks", {})
+        st.success(f"✅ Loaded cached summaries for {pdf_filename}")
+        return None
+
     with open(pdf_path, "rb") as f:
         reader = PyPDF2.PdfReader(f)
         page = reader.pages[page_num]
         text = page.extract_text()
 
-        lines = text.split("\n")
-        headlines = [line.strip() for line in lines if len(line.strip()) < 100 and (line.strip().isupper() or line.strip().istitle())]
-        article_lines = [line.strip() for line in lines if line.strip() not in headlines]
+    lines = [line.strip() for line in text.split("\n") if len(line.strip()) > 20 and not line.strip().isupper()]
+    clean_text = "\n".join(lines)
 
-        # Combine article and split
-        splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-        chunks = headlines + splitter.split_text("\n".join(article_lines))
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200)
+    chunks = splitter.split_text(clean_text)
 
-        # Tag chunks with category
-        tagged_chunks = []
-        for chunk in chunks:
-            categories = categorize_text(chunk)
-            if categories:
-                chunk = f"[{' | '.join(categories)}]\n{chunk}"  # Attach tags visibly
-            tagged_chunks.append(chunk)
+    summarizer = ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key)
+    categorizer_prompt = PromptTemplate.from_template("""
+    Categorize the following news chunk into one of the following categories:
+    {categories}
 
-        # Store in vectorstore
-        embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model, google_api_key=google_api_key)
-        vectorstore = FAISS.from_texts(tagged_chunks, embeddings)
+    News:
+    {chunk}
 
-        memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-        qa_chain = ConversationalRetrievalChain.from_llm(
-            llm=ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key),
-            retriever=vectorstore.as_retriever(),
-            memory=memory
-        )
+    Category:
+    """)
+    summary_prompt = PromptTemplate.from_template("""
+    Summarize the following news article in a clear, concise bullet point:
+    {chunk}
 
-        if "categorized_chunks" not in st.session_state:
-            st.session_state.categorized_chunks = {}
+    Summary:
+    """)
 
-        category_map = {}
-        for chunk in tagged_chunks:
-            label_start = chunk.find("[")
-            label_end = chunk.find("]")
-            if label_start != -1 and label_end != -1:
-                labels = chunk[label_start + 1:label_end].split(" | ")
-                content = chunk[label_end + 1:].strip()
-                for label in labels:
-                    category_map.setdefault(label.strip(), []).append(content)
-        st.session_state.categorized_chunks[os.path.basename(pdf_path)] = category_map
+    category_map = {}
+    summaries_grouped = {}
+    tagged_chunks = []
 
-        # Summarize chunks
-        summarizer = ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key)
-        summary_prompt = PromptTemplate.from_template("""
-        Summarize the following news chunk in one bullet point:
-        "{chunk}"
-        """)
+    for chunk in chunks:
+        if len(chunk.split()) < 30:
+            continue
+        try:
+            category = summarizer.predict(
+                categorizer_prompt.format(chunk=chunk, categories=", ".join(CATEGORIES))
+            ).strip()
 
-        grouped_summaries = []
-        for chunk in tagged_chunks:
-            if len(chunk) > 100:
-                try:
-                    summary = summarizer.predict(summary_prompt.format(chunk=chunk)).strip()
-                    categories = categorize_text(chunk)
-                    for category in categories:
-                        grouped_summaries.setdefault(category,[]).append(f"- {summary}")
-                    #summaries.append(f"- {summary.strip()}")
-                except:
-                    pass
+            summary = summarizer.predict(summary_prompt.format(chunk=chunk)).strip()
 
-        pdf_filename = os.path.basename(pdf_path)
-        if "summaries_grouped" not in st.session_state:
-            st.session_state.summaries_grouped = {}
-        st.session_state.summaries_grouped[pdf_filename] = grouped_summaries
+            if category not in CATEGORIES:
+                category = "Uncategorized"
 
-        # Show news summaries
-        #if summaries:
-        #    st.markdown("### 📰 Important News Highlights")
-        #    for s in summaries:
-        #        st.markdown(s)
-        
-        return qa_chain
-    st.success(f"✅ Processed page {page_num + 1} of {pdf_path}")
+            category_map.setdefault(category, []).append(chunk)
+            summaries_grouped.setdefault(category, []).append(f"- {summary}")
+
+            tagged_chunks.append(f"[{category}]\n{chunk}")
+
+        except Exception as e:
+            continue
+
+    embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model, google_api_key=google_api_key)
+    vectorstore = FAISS.from_texts(tagged_chunks, embeddings)
+
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    qa_chain = ConversationalRetrievalChain.from_llm(
+        llm=ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key),
+        retriever=vectorstore.as_retriever(),
+        memory=memory
+    )
+
+    st.session_state.summaries_grouped[pdf_filename] = summaries_grouped
+    st.session_state.categorized_chunks[pdf_filename] = category_map
+
+    summary_collection.update_one(
+        {"pdf": pdf_filename},
+        {"$set": {
+            "pdf": pdf_filename,
+            "summaries_grouped": summaries_grouped,
+            "categorized_chunks": category_map,
+        }},
+        upsert=True
+    )
+
+    st.success(f"✅ Page processed, summaries and QA ready for {pdf_filename}")
+    return qa_chain
     
 
 #sentiment_pipeline = pipeline("sentiment-analysis", model="cardiffnlp/twitter-roberta-base-sentiment")
@@ -302,7 +277,7 @@ if st.button("📥 Load Downloaded PDFs"):
                 selected_model=selected_model
             )
             if qa_chain:
-                st.session_state.qa_chains[i] = qa_chain
+                st.session_state.qa_chains[f"{paper_code}_{i}"] = qa_chain
     
     st.session_state.pdf_loaded = True
 
@@ -351,6 +326,9 @@ def render_message(message, sender="user"):
 
 if "selected_option" not in st.session_state:
     st.session_state.selected_option = ""
+
+if "prompt_query" not in st.session_state:
+    st.session_state.prompt_query = None
 
 if "selected_page" not in st.session_state:
     st.session_state.selected_page = "News"
@@ -430,66 +408,102 @@ options = {
 #         query = options[temp_option]
 
 
-if "qa_chains" in st.session_state and st.session_state.qa_chains:
-    selected_page = st.sidebar.selectbox("Select Page to Ask Questions From:", list(st.session_state.qa_chains.keys()))
+if st.session_state.get("summaries_grouped"):
+    if "selected_option" not in st.session_state:
+        st.session_state.selected_option = ""
+
+    if "prompt_query" not in st.session_state:
+        st.session_state.prompt_query = None
+
+    if "run_prompt" not in st.session_state:
+        st.session_state.run_prompt = False
+
+    #selected_page = st.sidebar.selectbox("Select Page to Ask Questions From:", list(st.session_state.qa_chains.keys()))
 # Optional selectbox prompts
     options = {
-        "📋 Everything Important": "Extract and list all major articles, headlines, and key updates from this page. Include political, business, sports, health, job, and city news. Ensure no important content is skipped. Return the results as a clean, well-structured bullet list.",
-        "🧠 Full Summary": "List all major news articles from this page clearly and concisely in bullet points, limiting to the top 20 items.",
-        "🗞️ All Headlines": "List all from this page, preserving formatting and spacing. Aim for 15 to 25 entries.",
-        "🔎 Important Headlines Only": "List all the major, category-worthy headlines from this page. Prioritize political, national, international, and sports news. Limit to 20 key points.",
-        "⚽ Sports": "Listall all sports news from this page including teams, matches, scores, and events. Use up to 20 lines.",
-        "🌍 International": "List all international stories, global leaders, countries, and incidents reported on this page in up to 25 detailed bullet points.",
-        "📰 Politics": "List all political headlines and key political developments from this page. Include leaders, decisions, or rallies. Use up to 20 concise bullet points.",
-        "💼 Jobs": "List all job openings, recruitment drives, walk-in interviews or job-related news mentioned. Aim for 25 specific job items if available.",
-        "🎓 Education": "List all updates related to exams, results, school/university news, and government schemes for students. Include 20 informative lines.",
-        "🏥 Health": "List all all health-related news including diseases, vaccination drives, hospital reports, or health tips. Use up to 20 clear points.",
-        "📉 Business": "List all market updates, company announcements, and economic news in up to 25 crisp points with sector or stock details.",
-        "🚨 Crime": "List all detailed crime reports including FIRs, police actions, thefts, or judicial developments. Summarize in 25 lines.",
-        "🌦️ Weather": "List all weather forecasts, rainfall alerts, temperature readings in Nagpur and in Vidarbha region in 20 to 25 well-structured lines."
+        "📋 Everything Important": "Give me everything important from all pages",
+        "🧠 Full Summary": "Summarize all pages clearly and concisely in 20 bullet points",
+        "🗞️ All Headlines": "List all headlines from this newspaper",
+        "🔎 Important Headlines Only": "List major headlines from this paper",
+        "⚽ Sports": "Give me all sports-related updates",
+        "🌍 International": "List all international news and countries mentioned",
+        "📰 Politics": "List all political developments",
+        "💼 Jobs": "List all job openings and walk-in drives",
+        "🎓 Education": "Give me educational news and updates",
+        "🏥 Health": "List health updates, hospital news, and tips",
+        "📉 Business": "Summarize all economic and business updates",
+        "🚨 Crime": "List all crime stories and FIRs",
+        "🌦️ Weather": "Tell me about weather alerts and temperatures in Nagpur/Vidarbha"
     }
-    selected_prompt = st.sidebar.selectbox("📌 Quick Prompt", [""] + list(options.keys()))
 
-    question = st.chat_input("💬 Ask something about this page") or options.get(selected_prompt)
+    
+    selected_option = st.sidebar.selectbox(
+        "📌 Quick Prompt", 
+        [""] + list(options.keys()),
+        key="selected_option"
+    )
+
+    if st.sidebar.button("▶️ Run Prompt"):
+        st.session_state.prompt_query = options.get(st.session_state.selected_option)
+        st.session_state.run_prompt = True  # trigger run
+
+    question = st.chat_input("💬 Ask something about this page")
+    if not question and st.session_state.run_prompt:
+        question = st.session_state.prompt_query
 
     paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
         
 
     if question:
-        # Optional: Use raw summaries instead of retrieval-based QA for summary-type prompts
-        summary_triggers = ["summary", "summarize", "everything important", "all headlines", "important news", "key updates"]
-        is_summary_request = any(trigger in question.lower() for trigger in summary_triggers)
-        
-        pdf_filename = f"{paper_code}_{selected_page}.pdf"  # or however you name it
-        summaries_by_cat = st.session_state.get("summaries_grouped", {}).get(pdf_filename)
+        summaries_by_cat = {}
+        for page_summaries in st.session_state.get("summaries_grouped", {}).values():
+            for category, bullets in page_summaries.items():
+                summaries_by_cat.setdefault(category, []).extend(bullets)
 
-        if is_summary_request and summaries_by_cat:
-            summary_text = ""
-            
-            # Filter by category if prompt matches
-            for category, bullet_points in summaries_by_cat.items():
-                if category.lower() in question.lower() or question.lower() in category.lower() or "everything" in question.lower() or "summary" in question.lower():
-                    summary_text += f"## {category}\n" + "\n".join(bullet_points) + "\n\n"
+        summary_text = ""
+        match_found = False
 
-            # If nothing matched specifically, show all
-            if not summary_text.strip():
-                for category, bullet_points in summaries_by_cat.items():
-                    summary_text += f"## {category}\n" + "\n".join(bullet_points) + "\n\n"
+        # Match by known categories (even if not "summary" word)
+        matched_cats = [
+            cat for cat in summaries_by_cat
+            if cat.lower() in question.lower()
+        ]
 
-            translated_response = translate_text(summary_text.strip(), language)
-            st.session_state.chat_history.append((question, translated_response))
+        if matched_cats or any(kw in question.lower() for kw in ["summary", "summarize", "everything", "headlines", "important"]):
+            # If something matched, add only those
+            categories_to_use = matched_cats if matched_cats else summaries_by_cat.keys()
+            for category in categories_to_use:
+                bullets = summaries_by_cat.get(category, [])
+                if bullets:
+                    summary_text += f"## {category}\n" + "\n".join(bullets) + "\n\n"
+                    match_found = True
 
-            
-        else:
-            qa = st.session_state.qa_chains[selected_page]
-            response = qa.run(question)
-            translated_response = translate_text(response, language)
-            st.session_state.chat_history.append((question, translated_response))
+            if summary_text.strip():
+                translated_response = translate_text(summary_text.strip(), language)
+                st.session_state.chat_history.append((question, translated_response))
+                st.session_state.run_prompt = False
+                st.session_state.prompt_query = None
+                #st.stop()
+
+        # ❗If no summary available, fall back to QA
+        if not match_found:
+            qa_chains = st.session_state.get("qa_chains", {})
+            if qa_chains:
+                first_qa = next(iter(qa_chains.values()))
+                try:
+                    response = first_qa.run(question)
+                    translated = translate_text(response, language)
+                    st.session_state.chat_history.append((question, translated))
+                except Exception as e:
+                    st.error(f"QA failed: {e}")
+            else:
+                st.warning("❌ No QA chains available to process your query.")
+
 else:
-    if st.session_state.get("pdf_loaded") == True:
-        st.warning("⚠️ PDFs were loaded but no QA chains were created. Check file content.")
+    if st.session_state.get("pdf_loaded"):
+        st.warning("⚠️ PDFs were loaded but no summaries available. Check processing.")
     else:
-        st.info("📄Click the button above to load and process the PDFs first.")
+        st.info("📄 Click the button above to load and process the PDFs first.")
 
 #for question, answer in st.session_state.chat_history:
 #    render_message(question, sender="user")
