@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from textblob import TextBlob
 import emoji
 import requests
-import datetime
+from datetime import datetime
 import PyPDF2
 from textblob import TextBlob
 import numpy as np
@@ -59,7 +59,7 @@ st.title("Newspaper PDF Chatbot")
 
 paper_type = st.radio("Select Paper Type",["Main Paper","Nagpur CityLine"])
 
-selected_date = st.date_input("Select Date",datetime.datetime.now())
+selected_date = st.date_input("Select Date",datetime.now())
 # with st.sidebar:
 #     selected = option_menu(
 #         menu_title=None,
@@ -125,7 +125,9 @@ def download_pdfs_from_site(base_url, paper_code, selected_date):
 
 
 CATEGORIES = [
-    "Politics", "Business", "Crime", "Sports", "Weather", "Jobs", "Health", "Education", "International"
+    "Politics", "Business", "Crime", "Sports", "Weather", "Jobs", "Health","Medical","Hospital", "Education", "International","India",
+    "Nagpur", "Entertainment", "Editorial", "War/Conflict", "Local News", "Opinion", "Technology", "Environment","Vidarbha","Maharashtra",
+    "Uncategorized", "Other"
 ]
 
 def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, selected_model):
@@ -136,17 +138,24 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
     if "categorized_chunks" not in st.session_state:
         st.session_state.categorized_chunks = {}
 
-    existing = summary_collection.find_one({"pdf": pdf_filename})
+    existing = summary_collection.find_one({"pdf": pdf_filename,"date": datetime.now().strftime("%Y-%m-%d")})
     if existing:
         st.session_state.summaries_grouped[pdf_filename] = existing["summaries_grouped"]
         st.session_state.categorized_chunks[pdf_filename] = existing.get("categorized_chunks", {})
         st.success(f"✅ Loaded cached summaries for {pdf_filename}")
-        return None
+        return st.session_state.qa_chains.get(pdf_filename)
 
     with open(pdf_path, "rb") as f:
         reader = PyPDF2.PdfReader(f)
-        page = reader.pages[page_num]
-        text = page.extract_text()
+        try:
+            page = reader.pages[page_num]
+            text = page.extract_text()
+        except Exception:
+            text = ""
+    
+    if not text or len(text.strip()) < 30:
+        st.warning("⚠️ No readable text found on this page (likely an ad or scanned image). Skipping.")
+        return None
 
     lines = [line.strip() for line in text.split("\n") if len(line.strip()) > 20 and not line.strip().isupper()]
     clean_text = "\n".join(lines)
@@ -155,6 +164,7 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
     chunks = splitter.split_text(clean_text)
 
     summarizer = ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key)
+
     categorizer_prompt = PromptTemplate.from_template("""
     Categorize the following news chunk into one of the following categories:
     {categories}
@@ -164,39 +174,65 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
 
     Category:
     """)
-    summary_prompt = PromptTemplate.from_template("""
-    Summarize the following news article in a clear, concise bullet point:
-    {chunk}
+    # summary_prompt = PromptTemplate.from_template("""
+    # Summarize the following news article in a clear, concise bullet point:
+    # {chunk}
 
-    Summary:
-    """)
+    # Summary:
+    # """)
 
     category_map = {}
     summaries_grouped = {}
     tagged_chunks = []
 
-    for chunk in chunks:
-        if len(chunk.split()) < 30:
+    BATCH_SIZE = 4
+    batched_chunks = [chunks[i:i + BATCH_SIZE] for i in range(0, len(chunks), BATCH_SIZE)]
+
+    for chunk_group in batched_chunks:
+        chunk_group = [chunk for chunk in chunk_group if len(chunk.split()) >= 30]
+        if not chunk_group:
             continue
+
+        group_text = ""
+        for idx, chunk in enumerate(chunk_group, 1):
+            group_text += f"[{idx}] {chunk.strip()}\n\n"
+
         try:
-            category = summarizer.predict(
-                categorizer_prompt.format(chunk=chunk, categories=", ".join(CATEGORIES))
-            ).strip()
+            # ✅ Step 1: Categorize individually
+            group_categories = []
+            for chunk in chunk_group:
+                category = summarizer.predict(
+                    categorizer_prompt.format(chunk=chunk, categories=", ".join(CATEGORIES))
+                ).strip()
+                if category not in CATEGORIES:
+                    category = "Uncategorized"
+                group_categories.append(category)
+                category_map.setdefault(category, []).append(chunk)
+                tagged_chunks.append(f"[{category}]\n{chunk}")
 
-            summary = summarizer.predict(summary_prompt.format(chunk=chunk)).strip()
+            # ✅ Step 2: Summarize entire group at once
+            summary_prompt = f"""
+            You are a helpful assistant. Summarize the following {len(chunk_group)} news sections in bullet points: 
+            {group_text} 
+            Provide 1 to 2 bullet points for each numbered section.
+            """
+            summary_output = summarizer.predict(summary_prompt).strip()
+            summary_bullets = [line.strip("-• ") for line in summary_output.splitlines() if line.strip()]
 
-            if category not in CATEGORIES:
-                category = "Uncategorized"
-
-            category_map.setdefault(category, []).append(chunk)
-            summaries_grouped.setdefault(category, []).append(f"- {summary}")
-
-            tagged_chunks.append(f"[{category}]\n{chunk}")
+            # ✅ Step 3: Distribute summaries back by order
+            for i in range(min(len(summary_bullets), len(group_categories))):
+                cat = group_categories[i]
+                summaries_grouped.setdefault(cat, []).append(f"- {summary_bullets[i]}")
 
         except Exception as e:
+            st.warning(f"⚠️ Skipping batch due to error: {e}")
             continue
 
     embeddings = GoogleGenerativeAIEmbeddings(model=embedding_model, google_api_key=google_api_key)
+    # ✅ SAFETY CHECK: Avoid IndexError if no valid content found
+    if not tagged_chunks:
+        st.warning("⚠️ No valid tagged chunks found for embedding. Skipping QA chain setup.")
+        return None
     vectorstore = FAISS.from_texts(tagged_chunks, embeddings)
 
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
@@ -209,10 +245,16 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
     st.session_state.summaries_grouped[pdf_filename] = summaries_grouped
     st.session_state.categorized_chunks[pdf_filename] = category_map
 
+    if "qa_chains" not in st.session_state:
+        st.session_state.qa_chains = {}
+    st.session_state.qa_chains[pdf_filename] = qa_chain
+
+    now = datetime.now().strftime("%Y-%m-%d")
     summary_collection.update_one(
-        {"pdf": pdf_filename},
+        {"pdf": pdf_filename,"date": now},
         {"$set": {
             "pdf": pdf_filename,
+            "date": now,
             "summaries_grouped": summaries_grouped,
             "categorized_chunks": category_map,
         }},
@@ -289,12 +331,19 @@ translator = Translator()
 language = st.sidebar.selectbox("🌐 Select Language:", ["English", "Hindi", "Marathi"])
 
 def translate_text(text, target_language):
-    if target_language == "Hindi":
-        return translator.translate(text, dest='hi').text
-    elif target_language == "Marathi":
-        return translator.translate(text, dest='mr').text
-    else:
-        return text  # English - no translation
+    if not text:
+        return "❌ No summary available to translate."
+
+    try:
+        if target_language == "Hindi":
+            return translator.translate(text, dest='hi').text
+        elif target_language == "Marathi":
+            return translator.translate(text, dest='mr').text
+        else:
+            return text  # English - no translation
+    except Exception as e:
+        return f"❌ Translation failed: {str(e)}"
+
 
 
 #user_input = st.chat_input("💬 Ask a question about the PDFs:")
@@ -418,74 +467,103 @@ if st.session_state.get("summaries_grouped"):
     if "run_prompt" not in st.session_state:
         st.session_state.run_prompt = False
 
-    #selected_page = st.sidebar.selectbox("Select Page to Ask Questions From:", list(st.session_state.qa_chains.keys()))
 # Optional selectbox prompts
-    options = {
-        "📋 Everything Important": "Give me everything important from all pages",
-        "🧠 Full Summary": "Summarize all pages clearly and concisely in 20 bullet points",
-        "🗞️ All Headlines": "List all headlines from this newspaper",
-        "🔎 Important Headlines Only": "List major headlines from this paper",
-        "⚽ Sports": "Give me all sports-related updates",
-        "🌍 International": "List all international news and countries mentioned",
-        "📰 Politics": "List all political developments",
-        "💼 Jobs": "List all job openings and walk-in drives",
-        "🎓 Education": "Give me educational news and updates",
-        "🏥 Health": "List health updates, hospital news, and tips",
-        "📉 Business": "Summarize all economic and business updates",
-        "🚨 Crime": "List all crime stories and FIRs",
-        "🌦️ Weather": "Tell me about weather alerts and temperatures in Nagpur/Vidarbha"
-    }
+    CATEGORIES1 = [
+        "Politics", "Business", "Crime", "Sports", "Weather", "Jobs", "Health","Medical","Hospital", "Education", "International","National",
+        "Nagpur City", "Entertainment", "Editorial", "War/Conflict", "Local News", "Opinion", "Technology", "Environment","Vidarbha News","Maharashtra News",
+        "Uncategorized", "Other"
+    ]
+    # ✅ Get only pages that have QA chains initialized
+    # --- Gather all summaries across all pages ---
+    summaries_grouped = st.session_state.get("summaries_grouped", {})
+    summaries_by_cat_all_pages = {}
 
-    
-    selected_option = st.sidebar.selectbox(
-        "📌 Quick Prompt", 
-        [""] + list(options.keys()),
-        key="selected_option"
-    )
+    for page_summary in summaries_grouped.values():
+        for category, bullets in page_summary.items():
+            if bullets:
+                normalized = category.strip().title()
+                summaries_by_cat_all_pages.setdefault(normalized, []).extend(bullets)
 
+    # --- Filter CATEGORIES based on available summaries ---
+    available_categories = [""] + [cat for cat in CATEGORIES if cat in summaries_by_cat_all_pages] + ["🧠 Full Summary"]
+
+    # --- QA chains (optional) ---
+    qa_chains = st.session_state.get("qa_chains", {})
+
+    # --- Sidebar Selectbox ---
+    selected_option = st.sidebar.selectbox("📌 Quick Prompt", available_categories, key="selected_option")
+
+    # --- Prompt trigger ---
     if st.sidebar.button("▶️ Run Prompt"):
-        st.session_state.prompt_query = options.get(st.session_state.selected_option)
-        st.session_state.run_prompt = True  # trigger run
+        st.session_state.prompt_query = selected_option  # Use selected category directly as prompt
+        st.session_state.run_prompt = True
 
-    question = st.chat_input("💬 Ask something about this page")
-    if not question and st.session_state.run_prompt:
-        question = st.session_state.prompt_query
+    # --- Main logic (No free chat_input, only selected options) ---
+    question = st.session_state.prompt_query if st.session_state.run_prompt else None
 
     paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
         
+    #pdf_filename = os.path.basename(f"{paper_code}_{selected_page}.pdf")
 
     if question:
         summaries_by_cat = {}
         for page_summaries in st.session_state.get("summaries_grouped", {}).values():
             for category, bullets in page_summaries.items():
-                summaries_by_cat.setdefault(category, []).extend(bullets)
+                summaries_by_cat.setdefault(category.lower(), []).extend(bullets)  # ✅ FIXED
 
         summary_text = ""
         match_found = False
-
-        # Match by known categories (even if not "summary" word)
-        matched_cats = [
-            cat for cat in summaries_by_cat
-            if cat.lower() in question.lower()
-        ]
-
-        if matched_cats or any(kw in question.lower() for kw in ["summary", "summarize", "everything", "headlines", "important"]):
-            # If something matched, add only those
-            categories_to_use = matched_cats if matched_cats else summaries_by_cat.keys()
-            for category in categories_to_use:
-                bullets = summaries_by_cat.get(category, [])
+        if question == "🧠 Full Summary":
+            for category, bullets in summaries_by_cat.items():
                 if bullets:
-                    summary_text += f"## {category}\n" + "\n".join(bullets) + "\n\n"
+                    summary_text += f"### {category.title()}\n" + "\n".join(bullets) + "\n\n"
+            match_found = True
+        else:
+            matched_cat = None
+            for cat in CATEGORIES:
+                if cat.lower() in question.lower():
+                    matched_cat = cat.lower()
+                    matched_cat_display = cat  # Store original for title display
+                    break
+
+            is_general_summary = any(kw in question.lower() for kw in ["summary", "summarize", "everything", "headlines", "important"])
+
+            if matched_cat or is_general_summary:
+                if matched_cat and summaries_by_cat.get(matched_cat):
+                    summary_text += f"### {matched_cat_display}\n" + "\n".join(summaries_by_cat[matched_cat]) + "\n\n"
                     match_found = True
 
-            if summary_text.strip():
-                translated_response = translate_text(summary_text.strip(), language)
+                elif matched_cat:
+                    fallback = summaries_by_cat.get("uncategorized", [])
+                    if fallback:
+                        summary_text += f"### Uncategorized\n" + "\n".join(fallback) + "\n\n"
+                        match_found = True
+
+                elif is_general_summary:
+                    for category, bullets in summaries_by_cat.items():
+                        if bullets:
+                            summary_text += f"### {category.title()}\n" + "\n".join(bullets) + "\n\n"
+                            match_found = True
+
+        if summary_text and summary_text.strip():
+            cleaned_text = summary_text.strip()
+            try:
+                # translated_response = translate_text(summary_text.strip(), language)
+                # #st.markdown(translated_response)
+                # st.session_state.chat_history.append((question, translated_response))
+                if language != "English":
+                    translated_response = translate_text(cleaned_text, language)
+                else:
+                    translated_response = cleaned_text
                 st.session_state.chat_history.append((question, translated_response))
                 st.session_state.run_prompt = False
                 st.session_state.prompt_query = None
-                #st.stop()
+            except Exception as e:
+                st.warning(f"❌ Translation failed: {e}")
+                st.session_state.chat_history.append((question, cleaned_text))
+        else:
+            st.warning("⚠️ No summary was generated for this page to translate.")
 
-        # ❗If no summary available, fall back to QA
         if not match_found:
             qa_chains = st.session_state.get("qa_chains", {})
             if qa_chains:
@@ -498,6 +576,23 @@ if st.session_state.get("summaries_grouped"):
                     st.error(f"QA failed: {e}")
             else:
                 st.warning("❌ No QA chains available to process your query.")
+
+        # if not match_found:
+        #     if "qa_chains" in st.session_state and st.session_state.qa_chains:
+        #         selected_page = st.sidebar.selectbox("📄 Select Page to Ask From:", list(st.session_state.qa_chains.keys()))
+                
+        #         if not question and selected_option:
+        #             question = options[selected_option]
+
+        #         if question:
+        #             qa_chain = st.session_state.qa_chains.get(selected_page)
+        #             if qa_chain:
+        #                 response = qa_chain.run(question)
+        #                 translated_response = translate_text(response, language)
+        #                 st.session_state.chat_history.append((question, translated_response))
+        #             else:
+        #                 st.error(f"❌ No QA chain available for {selected_page}.")    
+
 
 else:
     if st.session_state.get("pdf_loaded"):
