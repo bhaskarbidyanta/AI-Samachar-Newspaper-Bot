@@ -3,6 +3,7 @@ import datetime
 import os
 from streamlit_pdf_viewer import pdf_viewer as show_pdf
 import io
+from utils import logout
 #from pages.news import download_pdfs_from_site
 
 #def main():
@@ -67,4 +68,5 @@ show_online_pdf(pdf_url)
 
 # st.write(f"📄 Viewing: {pdf_url}")
 # show_online_pdf(pdf_url)
-
+if st.sidebar.button("Logout"):
+    logout()

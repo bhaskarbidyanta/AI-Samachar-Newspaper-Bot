@@ -10,6 +10,7 @@ from PIL import Image
 import io
 import platform
 from components import show_navbar, show_footer
+from utils import logout
 
 #show_navbar()
 st.title("Upload PDFs")
@@ -110,10 +111,10 @@ if uploaded_files:
     
 # Logout Button
 if st.sidebar.button("Logout"):
-    st.session_state.clear()
-    st.session_state.selected_page = "Login-Signup"
-    st.switch_page("pages/Login_Signup.py")  # Redirect to login page
+    logout()
+    #st.switch_page("pages/Login_Signup.py")  # Redirect to login page  
+    # Call the logout function from Login_Signup.py    st.switch_page("pages/Login_Signup.py")  # Redirect to login page
         #st.rerun()
 
     # Show footer
-    #show_footer()
+  #show_footer()
