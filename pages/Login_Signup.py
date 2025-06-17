@@ -8,7 +8,6 @@ from utils import send_otp_email,generate_otp, navbar
 #import pages.chatbot as chatbot
 
 #def main():
-navbar()
 
 # Initialize session state variables if not set
 if "logged_in" not in st.session_state:

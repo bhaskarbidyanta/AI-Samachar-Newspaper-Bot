@@ -17,8 +17,6 @@ import datetime
 import PyPDF2
 from components import show_navbar, show_footer
 from utils import navbar, logout
-navbar()
-
 # Load API key
 load_dotenv()
 google_api_key = st.secrets["GEMINI_API_KEY"]

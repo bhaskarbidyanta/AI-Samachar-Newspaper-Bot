@@ -29,9 +29,6 @@ from streamlit_option_menu import option_menu
 import os
 from db import summary_collection
 from utils import navbar
-navbar()
-
-# Load API key
 load_dotenv()
 google_api_key = st.secrets["GEMINI_API_KEY"]
 

@@ -9,7 +9,7 @@ from utils import logout, navbar
 #def main():
 import os
 
-navbar()
+
 
 # User inputs
 selected_date = st.date_input("Select Date", datetime.date.today())

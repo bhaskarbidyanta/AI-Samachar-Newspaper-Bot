@@ -50,7 +50,7 @@ def logout():
 def navbar():
     selected_page = option_menu(
         menu_title="AI Samachar",
-        options=["Home", "News", "Chatbot", "Pdf Upload", "Login-Signup", "View NewsPaper"],
+        options=["HomePage","Home", "News", "Chatbot", "Pdf Upload", "Login-Signup", "View NewsPaper"],
         icons=["house", "newspaper", "chat", "file-upload", "person", "eye"],
         menu_icon="cast",
         default_index=0,
@@ -62,19 +62,4 @@ def navbar():
         },
         orientation="horizontal",
     )
-
-    
-    if selected_page == "Home":
-        st.switch_page("pages/home.py")
-    elif selected_page == "News":
-        st.switch_page("pages/news.py")
-    elif selected_page == "Chatbot":
-        st.switch_page("pages/chatbot.py")
-    elif selected_page == "Pdf Upload":
-        st.switch_page("pages/pdf_upload.py")
-    elif selected_page == "Login-Signup":
-        st.switch_page("pages/Login_Signup.py")
-    elif selected_page == "View NewsPaper":
-        st.switch_page("pages/view_pdfs.py")
-    else:
-        st.error("Page not found.")
+    return selected_page

@@ -10,8 +10,6 @@ from components import show_navbar, show_footer
 from streamlit_option_menu import option_menu
 from utils import navbar
 
-navbar()
-
 st.set_page_config(page_title="AI Samachar", layout="wide")
 
 # your page content here
