@@ -16,8 +16,8 @@ import requests
 import datetime
 import PyPDF2
 from components import show_navbar, show_footer
-
-#show_navbar()
+from utils import navbar, logout
+navbar()
 
 # Load API key
 load_dotenv()

@@ -3,12 +3,12 @@ import pymongo
 from db import users_collection
 from components import show_navbar, show_footer
 import bcrypt
-from utils import send_otp_email,generate_otp
+from utils import send_otp_email,generate_otp, navbar
 #import pages.pdf_upload as pdf_upload
 #import pages.chatbot as chatbot
 
 #def main():
-#show_navbar()
+navbar()
 
 # Initialize session state variables if not set
 if "logged_in" not in st.session_state:
@@ -100,7 +100,7 @@ elif menu == "Forgot Password":
                     st.error("Failed to send OTP.Try again.")
             else:
                 st.error("No account found with this email.")
-    elif not st.session_state.otp_verified:
+    if not st.session_state.otp_verified:
         otp_input = st.text_input("Enter the OTP sent to your email")
         if st.button("Verify OTP"):
             if otp_input == st.session_state.otp_value:
@@ -108,7 +108,7 @@ elif menu == "Forgot Password":
                 st.success("OTP verified! You can now reset your password.")
             else:
                 st.error("Invlid OTP! Please try again.")
-    else:
+    if st.session_state.otp_verified:
         new_password = st.text_input("Enter new password", type="password")
         confirm_password = st.text_input("Confirm new password", type="password")
         if st.button("Reset Password"):

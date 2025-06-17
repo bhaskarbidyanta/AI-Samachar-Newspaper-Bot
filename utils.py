@@ -5,9 +5,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import streamlit as st
 from dotenv import load_dotenv
+from streamlit_option_menu import option_menu
 
 def generate_otp():
-    
+
     return str(random.randint(100000, 999999))
 
 def send_otp_email(receiver_email, otp):
@@ -45,3 +46,35 @@ def logout():
     st.success("Logged out successfully!")
     #st.clear_session()    
     st.switch_page("pages/Login_Signup.py")
+
+def navbar():
+    selected_page = option_menu(
+        menu_title="AI Samachar",
+        options=["Home", "News", "Chatbot", "Pdf Upload", "Login-Signup", "View NewsPaper"],
+        icons=["house", "newspaper", "chat", "file-upload", "person", "eye"],
+        menu_icon="cast",
+        default_index=0,
+        styles={
+            "container": {"padding": "5!important"},
+            "icon": {"color": "#ffffff"},
+            "nav-link": {"font-size": "16px"},
+            "nav-link-selected": {"background-color": "#004080"},
+        },
+        orientation="horizontal",
+    )
+
+    
+    if selected_page == "Home":
+        st.switch_page("pages/home.py")
+    elif selected_page == "News":
+        st.switch_page("pages/news.py")
+    elif selected_page == "Chatbot":
+        st.switch_page("pages/chatbot.py")
+    elif selected_page == "Pdf Upload":
+        st.switch_page("pages/pdf_upload.py")
+    elif selected_page == "Login-Signup":
+        st.switch_page("pages/Login_Signup.py")
+    elif selected_page == "View NewsPaper":
+        st.switch_page("pages/view_pdfs.py")
+    else:
+        st.error("Page not found.")

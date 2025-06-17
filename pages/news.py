@@ -28,7 +28,8 @@ from langdetect import detect
 from streamlit_option_menu import option_menu
 import os
 from db import summary_collection
-#show_navbar()
+from utils import navbar
+navbar()
 
 # Load API key
 load_dotenv()

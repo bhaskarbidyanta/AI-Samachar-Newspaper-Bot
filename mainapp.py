@@ -8,7 +8,9 @@ from components import show_navbar, show_footer
 #import pages.view_pdfs as view_pdfs
 #import pages.home as home
 from streamlit_option_menu import option_menu
+from utils import navbar
 
+navbar()
 
 st.set_page_config(page_title="AI Samachar", layout="wide")
 

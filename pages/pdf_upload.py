@@ -10,9 +10,9 @@ from PIL import Image
 import io
 import platform
 from components import show_navbar, show_footer
-from utils import logout
+from utils import navbar,logout
 
-#show_navbar()
+navbar()
 st.title("Upload PDFs")
 
 # ✅ Check if user is logged in and an admin

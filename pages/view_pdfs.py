@@ -3,11 +3,13 @@ import datetime
 import os
 from streamlit_pdf_viewer import pdf_viewer as show_pdf
 import io
-from utils import logout
+from utils import logout, navbar
 #from pages.news import download_pdfs_from_site
 
 #def main():
 import os
+
+navbar()
 
 # User inputs
 selected_date = st.date_input("Select Date", datetime.date.today())
