@@ -16,7 +16,7 @@ import requests
 import datetime
 import PyPDF2
 from components import show_navbar, show_footer
-from utils import navbar, logout
+from utils import navbar, logout , page_buttons
 # Load API key
 load_dotenv()
 google_api_key = st.secrets["GEMINI_API_KEY"]
@@ -237,5 +237,6 @@ def load_and_process_pdfs(download_dir, google_api_key, embedding_model, selecte
 
     return qa_chain
 
+page_buttons()
 
 #show_footer()

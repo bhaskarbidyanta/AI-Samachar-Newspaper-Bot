@@ -3,7 +3,7 @@ import pymongo
 from db import users_collection
 from components import show_navbar, show_footer
 import bcrypt
-from utils import send_otp_email,generate_otp, navbar
+from utils import send_otp_email,generate_otp, page_buttons
 #import pages.pdf_upload as pdf_upload
 #import pages.chatbot as chatbot
 
@@ -127,6 +127,7 @@ elif menu == "Forgot Password":
 
   # Redirect to login page
     
+page_buttons()
 
 
   #show_footer()

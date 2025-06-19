@@ -19,7 +19,7 @@ from textblob import TextBlob
 import numpy as np
 #import re
 #from transformers import pipeline
-from components import show_navbar,show_footer
+from components import show_navbar
 from pathlib import Path
 from gtts import gTTS
 import base64
@@ -28,7 +28,7 @@ from langdetect import detect
 from streamlit_option_menu import option_menu
 import os
 from db import summary_collection
-from utils import navbar, page_buttons
+from utils import show_footer, page_buttons
 load_dotenv()
 google_api_key = st.secrets["GEMINI_API_KEY"]
 
@@ -824,4 +824,4 @@ if st.sidebar.button("📊 Analyze Sentiment"):
 #     st.session_state.clear()
 #     st.switch_page("mainapp.py")
 
-#show_footer()
+show_footer()

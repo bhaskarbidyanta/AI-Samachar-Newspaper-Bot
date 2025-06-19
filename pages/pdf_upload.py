@@ -10,7 +10,7 @@ from PIL import Image
 import io
 import platform
 from components import show_navbar, show_footer
-from utils import navbar,logout
+from utils import navbar,logout,page_buttons
 
 st.title("Upload PDFs")
 
@@ -107,7 +107,8 @@ if uploaded_files:
 
     #st.success(f"Uploaded: {file.name} (ID: {result.inserted_id})")
 
-    
+page_buttons()
+
 # Logout Button
 if st.sidebar.button("Logout"):
     logout()

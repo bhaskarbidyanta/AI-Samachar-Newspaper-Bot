@@ -1,4 +1,6 @@
 #utils.py
+import datetime
+import streamlit as st
 import smtplib
 import random
 from email.mime.text import MIMEText
@@ -73,6 +75,7 @@ def page_buttons():
                 margin: 0 auto;
                 display: flex;
                 justify-content: center;
+                
             }
         </style>
     """, unsafe_allow_html=True)
@@ -96,14 +99,71 @@ def page_buttons():
                 st.switch_page(target)
 
     # Add GitHub icon-style button centered
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(
-        '<div style="text-align:center;">'
-        '<a href="https://github.com/bhaskarbidyanta/AI-Samachar-Newspaper-Bot" target="_blank">'
-        '<button class="nav-button">🌐 Project GitHub</button>'
-        '</a>'
-        '</div>',
-        unsafe_allow_html=True
-    )
+    # st.markdown("<br>", unsafe_allow_html=True)
+    # st.markdown(
+    #     '<div style="text-align:center;">'
+    #     '<a href="https://github.com/bhaskarbidyanta/AI-Samachar-Newspaper-Bot" target="_blank">'
+    #     '<button class="nav-button">🌐 Project GitHub</button>'
+    #     '</a>'
+    #     '</div>',
+    #     unsafe_allow_html=True
+    #)
+
+
+def show_github_button():
+    if st.button("🔗 GitHub"):
+        st.components.v1.html(
+            """<script>
+            window.open("https://github.com/bhaskarbidyanta/AI-Samachar-Newspaper-Bot", "_blank");
+            </script>""",
+            height=0
+        )
+
+
+def show_footer():
+    year = datetime.datetime.now().year
+
+    st.markdown("""
+        <style>
+        .fixed-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #f0d0ce;
+            color: #050000;
+            text-align: center;
+            padding: 10px 0;
+            font-size: 0.85em;
+            z-index: 9999;
+            border-top: 1px solid #333;
+        }
+
+        /* Avoid footer overlapping page content */
+        .stApp {
+            padding-bottom: 50px; /* height of footer */
+        }
+
+        a.footer-link {
+            color: black;
+            text-decoration: none;
+            margin: 0 8px;
+        }
+
+        a.footer-link:hover {
+            color: #fff;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+        <div class="fixed-footer">
+            © {year} AI Samachar · Built by 
+            <a href="https://github.com/bhaskarbidyanta" target="_blank" class="footer-link">Bhaskar Bidyanta</a> |
+            <a href="https://github.com/bhaskarbidyanta/AI-Samachar-Newspaper-Bot" target="_blank" class="footer-link">GitHub</a> |
+            <a href="https://www.linkedin.com/in/bhaskarbidyanta/" target="_blank" class="footer-link">LinkedIn</a>
+        </div>
+    """, unsafe_allow_html=True)
+
 
                 
