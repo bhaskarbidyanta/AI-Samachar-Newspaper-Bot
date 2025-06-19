@@ -28,7 +28,7 @@ from langdetect import detect
 from streamlit_option_menu import option_menu
 import os
 from db import summary_collection
-from utils import navbar
+from utils import navbar, page_buttons
 load_dotenv()
 google_api_key = st.secrets["GEMINI_API_KEY"]
 
@@ -125,22 +125,27 @@ def download_pdfs_from_site(base_url, paper_code, selected_date):
 CATEGORIES = [
     "Politics", "Business", "Crime", "Sports", "Weather", "Jobs", "Health","Medical","Hospital", "Education", "International","India",
     "Nagpur", "Entertainment", "Editorial", "War/Conflict", "Local News", "Opinion", "Technology", "Environment","Vidarbha","Maharashtra",
-    "Uncategorized", "Other"
+    "Uncategorized", "Other","Headline"
 ]
 
 def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, selected_model):
+    import re
     pdf_filename = os.path.basename(pdf_path)
 
     if "summaries_grouped" not in st.session_state:
         st.session_state.summaries_grouped = {}
     if "categorized_chunks" not in st.session_state:
         st.session_state.categorized_chunks = {}
+    if "headlines_grouped" not in st.session_state:
+        st.session_state.headlines_grouped = {}
 
     existing = summary_collection.find_one({"pdf": pdf_filename,"date": datetime.now().strftime("%Y-%m-%d")})
     if existing:
-        st.session_state.summaries_grouped[pdf_filename] = existing["summaries_grouped"]
+        #st.session_state.summaries_grouped[pdf_filename] = existing["summaries_grouped"]
         st.session_state.categorized_chunks[pdf_filename] = existing.get("categorized_chunks", {})
-        st.success(f"✅ Loaded cached summaries for {pdf_filename}")
+        st.session_state.headlines_grouped[pdf_filename] = existing.get("headlines_grouped", {})
+        st.success(f"✅ Loaded cached summaries/headlines for {pdf_filename}")
+        #st.success(f"✅ Loaded cached summaries for {pdf_filename}")
         return st.session_state.qa_chains.get(pdf_filename)
 
     with open(pdf_path, "rb") as f:
@@ -158,7 +163,7 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
     lines = [line.strip() for line in text.split("\n") if len(line.strip()) > 20 and not line.strip().isupper()]
     clean_text = "\n".join(lines)
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     chunks = splitter.split_text(clean_text)
 
     summarizer = ChatGoogleGenerativeAI(model=selected_model, google_api_key=google_api_key)
@@ -172,6 +177,12 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
 
     Category:
     """)
+
+    CATEGORIES = [
+        "Politics", "Business", "Crime", "Sports", "Weather", "Jobs", "Health","Medical","Hospital", "Education", "International","India",
+        "Nagpur", "Entertainment", "Editorial", "War/Conflict", "Local News", "Opinion", "Technology", "Environment","Vidarbha","Maharashtra",
+        "Uncategorized", "Other","Headline"
+    ]
     # summary_prompt = PromptTemplate.from_template("""
     # Summarize the following news article in a clear, concise bullet point:
     # {chunk}
@@ -181,13 +192,14 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
 
     category_map = {}
     summaries_grouped = {}
+    headlines_grouped = {}
     tagged_chunks = []
 
-    BATCH_SIZE = 4
+    BATCH_SIZE = 2
     batched_chunks = [chunks[i:i + BATCH_SIZE] for i in range(0, len(chunks), BATCH_SIZE)]
 
     for chunk_group in batched_chunks:
-        chunk_group = [chunk for chunk in chunk_group if len(chunk.split()) >= 30]
+        chunk_group = [chunk for chunk in chunk_group if len(chunk.split()) >= 10]
         if not chunk_group:
             continue
 
@@ -209,18 +221,33 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
                 tagged_chunks.append(f"[{category}]\n{chunk}")
 
             # ✅ Step 2: Summarize entire group at once
-            summary_prompt = f"""
-            You are a helpful assistant. Summarize the following {len(chunk_group)} news sections in bullet points: 
-            {group_text} 
-            Provide 1 to 2 bullet points for each numbered section.
+            headline_prompt = f"""
+            You are a headline generator. For each numbered news section below, generate a short, clear headline.
+
+            News Sections:
+            {group_text}
+
+            Instructions:
+            - Return exactly {len(chunk_group)} headlines.
+            - Prefix each headline with the section number in [brackets] (e.g., [1], [2], etc.).
+            - Do not skip or merge any.
+            - Headlines should be concise and informative.
+
+            Output:
             """
-            summary_output = summarizer.predict(summary_prompt).strip()
-            summary_bullets = [line.strip("-• ") for line in summary_output.splitlines() if line.strip()]
+            headline_output = summarizer.predict(headline_prompt).strip()
+            headlines = {}
+            for line in headline_output.splitlines():
+                match = re.match(r"\[(\d+)]\s*(.+)", line.strip())
+                if match:
+                    idx = int(match.group(1)) - 1
+                    headlines[idx] = match.group(2).strip()
 
             # ✅ Step 3: Distribute summaries back by order
-            for i in range(min(len(summary_bullets), len(group_categories))):
+            for i in range(min(len(headlines), len(group_categories))):
+                hl = headlines.get(i, chunk_group[i][:80] + "...")
                 cat = group_categories[i]
-                summaries_grouped.setdefault(cat, []).append(f"- {summary_bullets[i]}")
+                headlines_grouped.setdefault(cat, []).append(hl)
 
         except Exception as e:
             st.warning(f"⚠️ Skipping batch due to error: {e}")
@@ -242,6 +269,7 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
 
     st.session_state.summaries_grouped[pdf_filename] = summaries_grouped
     st.session_state.categorized_chunks[pdf_filename] = category_map
+    st.session_state.headlines_grouped[pdf_filename] = headlines_grouped
 
     if "qa_chains" not in st.session_state:
         st.session_state.qa_chains = {}
@@ -253,8 +281,9 @@ def process_pdf_by_page(pdf_path, page_num, google_api_key, embedding_model, sel
         {"$set": {
             "pdf": pdf_filename,
             "date": now,
-            "summaries_grouped": summaries_grouped,
+            #"summaries_grouped": summaries_grouped,
             "categorized_chunks": category_map,
+            "headlines_grouped": headlines_grouped,
         }},
         upsert=True
     )
@@ -316,10 +345,32 @@ if st.button("📥 Load Downloaded PDFs"):
                 embedding_model=EMBEDDING_MODEL,
                 selected_model=selected_model
             )
+
+            pdf_filename = os.path.basename(pdf_path)
+            if "headlines_grouped" in st.session_state and pdf_filename in st.session_state.headlines_grouped:
+                st.markdown(f"## 📰 Headlines from {pdf_filename}")
+                
+
+                headlines_grouped = st.session_state.headlines_grouped[pdf_filename]
+
+                for category, headlines in headlines_grouped.items():
+                    if not headlines:
+                        continue
+
+                    unique_headlines = list(dict.fromkeys([
+                        hl.strip().replace("Headlines:", "").strip() for hl in headlines if hl.strip()
+                    ]))
+
+                    if unique_headlines:
+                        st.markdown(f"### {category}")
+                        for idx, hl in enumerate(unique_headlines, 1):
+                            st.markdown(f"{idx}. {hl}")
+
             if qa_chain:
                 st.session_state.qa_chains[f"{paper_code}_{i}"] = qa_chain
-    
+
     st.session_state.pdf_loaded = True
+
 
 from googletrans import Translator
 
@@ -360,7 +411,7 @@ def render_message(message, sender="user"):
         f"""
         <div style='text-align: {alignment}; margin: 10px 0;'>
             <div style='display: inline-block; background-color: {bg_color}; 
-                        padding: 10px 15px; border-radius: 10px; max-width: 80%;'>
+                        padding: 10px 15px; border-radius: 10px; max-width: 80%;color: black;'>
                 <strong>{label}</strong><br>{message}
             </div>
         </div>
@@ -455,7 +506,7 @@ options = {
 #         query = options[temp_option]
 
 
-if st.session_state.get("summaries_grouped"):
+if st.session_state.get("headlines_grouped"):
     if "selected_option" not in st.session_state:
         st.session_state.selected_option = ""
 
@@ -473,17 +524,17 @@ if st.session_state.get("summaries_grouped"):
     ]
     # ✅ Get only pages that have QA chains initialized
     # --- Gather all summaries across all pages ---
-    summaries_grouped = st.session_state.get("summaries_grouped", {})
-    summaries_by_cat_all_pages = {}
+    headlines_grouped = st.session_state.get("headlines_grouped", {})
+    headlines_by_cat_all_pages = {}
 
-    for page_summary in summaries_grouped.values():
-        for category, bullets in page_summary.items():
+    for page_headlines in headlines_grouped.values():
+        for category, bullets in page_headlines.items():
             if bullets:
                 normalized = category.strip().title()
-                summaries_by_cat_all_pages.setdefault(normalized, []).extend(bullets)
+                headlines_by_cat_all_pages.setdefault(normalized, []).extend(bullets)
 
     # --- Filter CATEGORIES based on available summaries ---
-    available_categories = [""] + [cat for cat in CATEGORIES if cat in summaries_by_cat_all_pages] + ["🧠 Full Summary"]
+    available_categories = [""] + [cat for cat in CATEGORIES if cat in headlines_by_cat_all_pages] + ["🧠 Full Summary"]+['Headlines']
 
     # --- QA chains (optional) ---
     qa_chains = st.session_state.get("qa_chains", {})
@@ -502,19 +553,20 @@ if st.session_state.get("summaries_grouped"):
     paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
         
     #pdf_filename = os.path.basename(f"{paper_code}_{selected_page}.pdf")
+    
 
     if question:
-        summaries_by_cat = {}
-        for page_summaries in st.session_state.get("summaries_grouped", {}).values():
-            for category, bullets in page_summaries.items():
-                summaries_by_cat.setdefault(category.lower(), []).extend(bullets)  # ✅ FIXED
+        headlines_by_cat = {}
+        for page_headlines in st.session_state.get("headlines_grouped", {}).values():
+            for category, bullets in page_headlines.items():
+                headlines_by_cat.setdefault(category.lower(), []).extend(bullets)  # ✅ FIXED
 
-        summary_text = ""
+        headlines_text = ""
         match_found = False
-        if question == "🧠 Full Summary":
-            for category, bullets in summaries_by_cat.items():
+        if question in ["🧠 Full Summary","Headlines"]:
+            for category, bullets in headlines_by_cat.items():
                 if bullets:
-                    summary_text += f"### {category.title()}\n" + "\n".join(bullets) + "\n\n"
+                    headlines_text += f"### {category.title()}\n" + "\n".join(bullets) + "\n\n"
             match_found = True
         else:
             matched_cat = None
@@ -525,26 +577,27 @@ if st.session_state.get("summaries_grouped"):
                     break
 
             is_general_summary = any(kw in question.lower() for kw in ["summary", "summarize", "everything", "headlines", "important"])
+            is_headlines_only = "headlines" in question.lower()
 
             if matched_cat or is_general_summary:
-                if matched_cat and summaries_by_cat.get(matched_cat):
-                    summary_text += f"### {matched_cat_display}\n" + "\n".join(summaries_by_cat[matched_cat]) + "\n\n"
+                if matched_cat and headlines_by_cat.get(matched_cat):
+                    headlines_text += f"### {matched_cat_display}\n" + "\n".join(headlines_by_cat[matched_cat]) + "\n\n"
                     match_found = True
 
                 elif matched_cat:
-                    fallback = summaries_by_cat.get("uncategorized", [])
+                    fallback = headlines_by_cat.get("uncategorized", [])
                     if fallback:
-                        summary_text += f"### Uncategorized\n" + "\n".join(fallback) + "\n\n"
+                        headlines_text += f"### Uncategorized\n" + "\n".join(fallback) + "\n\n"
                         match_found = True
 
                 elif is_general_summary:
-                    for category, bullets in summaries_by_cat.items():
+                    for category, bullets in headlines_by_cat.items():
                         if bullets:
-                            summary_text += f"### {category.title()}\n" + "\n".join(bullets) + "\n\n"
+                            headlines_text += f"### {category.title()}\n" + "\n".join(bullets) + "\n\n"
                             match_found = True
 
-        if summary_text and summary_text.strip():
-            cleaned_text = summary_text.strip()
+        if headlines_text and headlines_text.strip():
+            cleaned_text = headlines_text.strip()
             try:
                 # translated_response = translate_text(summary_text.strip(), language)
                 # #st.markdown(translated_response)
@@ -574,6 +627,9 @@ if st.session_state.get("summaries_grouped"):
                     st.error(f"QA failed: {e}")
             else:
                 st.warning("❌ No QA chains available to process your query.")
+
+            
+        
 
         # if not match_found:
         #     if "qa_chains" in st.session_state and st.session_state.qa_chains:
@@ -608,6 +664,8 @@ with chat_history_container:
     for user_msg, bot_msg in st.session_state.chat_history:
         render_message(user_msg, sender="user")
         render_message(bot_msg, sender="bot")
+
+page_buttons()
         # with st.chat_message("user"):
         #     st.markdown(user_msg)
         # with st.chat_message("assistant"):

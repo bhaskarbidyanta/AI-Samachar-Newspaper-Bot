@@ -37,3 +37,8 @@ streamlit_pdf_viewer
 streamlit_option_menu
 pymongo
 secure-smtplib
+transformers
+sentencepiece
+PyMuPDF
+fitz
+deep_translator

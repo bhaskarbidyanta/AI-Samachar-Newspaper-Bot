@@ -63,3 +63,35 @@ def navbar():
         orientation="horizontal",
     )
     return selected_page
+
+def page_buttons():
+    cols = st.columns(7)
+    with cols[0]:
+        if st.button("Home"):
+            st.session_state.page = "HomePage"
+            st.switch_page("mainapp.py")
+    with cols[1]:
+        if st.button("News"):
+            st.session_state.page = "News"
+            st.switch_page("pages/News.py")
+    with cols[2]:
+        if st.button("Chatbot"):
+            st.session_state.page = "Chatbot"
+            st.switch_page("pages/chatbot.py")
+    with cols[3]:
+        if st.button("Pdf Upload"):
+            st.session_state.page = "Pdf Upload"
+            st.switch_page("pages/pdf_upload.py")
+    with cols[4]:
+        if st.button("Login-Signup"):
+            st.session_state.page = "Login-Signup"
+            st.switch_page("pages/Login_Signup.py")
+    with cols[5]:
+        if st.button("View NewsPaper"):
+            st.session_state.page = "View NewsPaper"
+            st.switch_page("pages/view_pdfs.py")
+    with cols[6]:
+        if st.button("GitHub"):
+            github_url = "https://github.com/bhaskarbidyanta/AI-Samachar-Newspaper-Bot"
+            st.markdown(f"Github Repository {github_url}", unsafe_allow_html=True)
+                
