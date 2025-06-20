@@ -28,7 +28,7 @@ from langdetect import detect
 from streamlit_option_menu import option_menu
 import os
 from db import summary_collection
-from utils import show_footer, page_buttons
+from utils import show_footer, page_buttons, logout
 load_dotenv()
 google_api_key = st.secrets["GEMINI_API_KEY"]
 
@@ -533,17 +533,18 @@ if st.session_state.get("headlines_grouped"):
                 normalized = category.strip().title()
                 headlines_by_cat_all_pages.setdefault(normalized, []).extend(bullets)
 
+    headlines_grouped = st.session_state.get("headlines_grouped",{})
     # --- Filter CATEGORIES based on available summaries ---
-    available_categories = [""] + [cat for cat in CATEGORIES if cat in headlines_by_cat_all_pages] + ["🧠 Full Summary"]+['Headlines']
+    available_categories = [""] + [cat for cat in CATEGORIES if cat in headlines_by_cat_all_pages] + ["🧠 Full Summary"]+['All Headlines']
 
     # --- QA chains (optional) ---
     qa_chains = st.session_state.get("qa_chains", {})
 
     # --- Sidebar Selectbox ---
-    selected_option = st.sidebar.selectbox("📌 Quick Prompt", available_categories, key="selected_option")
+    selected_option = st.selectbox("📌 Quick Prompt", available_categories, key="selected_option")
 
     # --- Prompt trigger ---
-    if st.sidebar.button("▶️ Run Prompt"):
+    if st.button("▶️ Run Prompt"):
         st.session_state.prompt_query = selected_option  # Use selected category directly as prompt
         st.session_state.run_prompt = True
 
@@ -553,9 +554,28 @@ if st.session_state.get("headlines_grouped"):
     paper_code = "Mpage" if paper_type == "Main Paper" else "NCpage"
         
     #pdf_filename = os.path.basename(f"{paper_code}_{selected_page}.pdf")
-    
+    if question == "All Headlines":
+        full_text = ""
+        for pdf_filename, page_headlines in st.session_state.get("headlines_grouped", {}).items():
+            full_text += f"## 📰 Headlines from {pdf_filename}\n"
+            for category, headlines in page_headlines.items():
+                if not headlines:
+                    continue
+                cleaned = list(dict.fromkeys([
+                    hl.strip().replace("Headlines:", "").strip()
+                    for hl in headlines if hl.strip()
+                ]))
+                if cleaned:
+                    full_text += f"### {category}\n"
+                    for i, hl in enumerate(cleaned, 1):
+                        full_text += f"{i}. {hl}\n"
+            full_text += "\n"
 
-    if question:
+        st.session_state.chat_history.append((question, full_text.strip()))
+        st.session_state.run_prompt = False
+        st.session_state.prompt_query = None    
+
+    elif question:
         headlines_by_cat = {}
         for page_headlines in st.session_state.get("headlines_grouped", {}).values():
             for category, bullets in page_headlines.items():
@@ -576,7 +596,7 @@ if st.session_state.get("headlines_grouped"):
                     matched_cat_display = cat  # Store original for title display
                     break
 
-            is_general_summary = any(kw in question.lower() for kw in ["summary", "summarize", "everything", "headlines", "important"])
+            is_general_summary = any(kw in question.lower() for kw in ["summary", "summarize", "everything", "important"])
             is_headlines_only = "headlines" in question.lower()
 
             if matched_cat or is_general_summary:
@@ -628,8 +648,6 @@ if st.session_state.get("headlines_grouped"):
             else:
                 st.warning("❌ No QA chains available to process your query.")
 
-            
-        
 
         # if not match_found:
         #     if "qa_chains" in st.session_state and st.session_state.qa_chains:
@@ -664,6 +682,10 @@ with chat_history_container:
     for user_msg, bot_msg in st.session_state.chat_history:
         render_message(user_msg, sender="user")
         render_message(bot_msg, sender="bot")
+
+if st.sidebar.button("🧹 Clear Chat History"):
+    st.session_state.chat_history.clear()
+    st.rerun()
 
 page_buttons()
         # with st.chat_message("user"):
@@ -823,5 +845,34 @@ if st.sidebar.button("📊 Analyze Sentiment"):
 # if st.sidebar.button("Logout"):
 #     st.session_state.clear()
 #     st.switch_page("mainapp.py")
+
+if st.sidebar.button("Logout"):
+    logout()
+
+def scroll_to_top_button():
+    st.markdown("""
+        <style>
+        .scroll-to-top-btn {
+            position: fixed;
+            bottom: 100px; /* Lifted above footer */
+            right: 30px;
+            z-index: 9999;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
+        }
+        .scroll-to-top-btn:hover {
+            background-color: #45a049;
+        }
+        </style>
+
+        <button class="scroll-to-top-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'});">🔝 Top</button>
+        """, unsafe_allow_html=True)
+scroll_to_top_button()
 
 show_footer()

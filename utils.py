@@ -165,5 +165,35 @@ def show_footer():
         </div>
     """, unsafe_allow_html=True)
 
+import streamlit as st
+
+def scroll_to_top_button():
+    scroll_button_html = """
+        <style>
+        #scrollTopBtn {
+            position: fixed;
+            bottom: 80px; /* ⬅️ Increased to stay above footer */
+            right: 25px;
+            z-index: 9999;
+            font-size: 18px;
+            border: none;
+            outline: none;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            padding: 10px 16px;
+            border-radius: 10px;
+            transition: background-color 0.3s ease;
+        }
+        #scrollTopBtn:hover {
+            background-color: #388e3c;
+        }
+        </style>
+        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});" id="scrollTopBtn">🔝 Top</button>
+    """
+    st.markdown(scroll_button_html, unsafe_allow_html=True)
+
+
+
 
                 
